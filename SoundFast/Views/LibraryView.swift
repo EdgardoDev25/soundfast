@@ -328,6 +328,11 @@ struct LibraryView: View {
                 .environment(\.defaultMinListRowHeight, 1)
                 .scrollDismissesKeyboard(.immediately)
                 .environment(\.editMode, .constant(reordering ? .active : .inactive))
+                .onChange(of: ui.revealTick) { _, _ in
+                    // Como Poweramp: al volver de la reproducción, la canción que suena queda centrada.
+                    guard let id = player.currentId, songs.contains(where: { $0.id == id }) else { return }
+                    withAnimation(.easeInOut(duration: 0.4)) { proxy.scrollTo(id, anchor: .center) }
+                }
                 .onChange(of: ui.azLetter) { _, letter in
                     guard let letter, let target = firstSong(from: letter) else { return }
                     proxy.scrollTo(target, anchor: .top)

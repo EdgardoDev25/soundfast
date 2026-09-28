@@ -332,6 +332,8 @@ struct SettingsView: View {
                 navRow("Versión", value: "\(version) (\(build))", chevron: false) {}
                 divider
                 navRow("Compilada", value: date, chevron: false) {}
+                divider
+                navRow("Fuente", value: FontRegistry.status, chevron: false) {}
             }
         }
     }

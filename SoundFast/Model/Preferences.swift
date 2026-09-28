@@ -123,7 +123,7 @@ struct SoundSettings: Codable, Equatable {
     /// Forma del refuerzo de graves (debe coincidir con el motor de audio).
     static let bassBellWidth = 1.1          // octavas
     static let bassBellShare = 1.0          // parte del refuerzo en la campana
-    static let bassShelfShare = 0.55        // parte en el estante por debajo
+    static let bassShelfShare = 0.6         // parte en el estante por debajo
     static let bassShelfRatio = 0.6         // el estante empieza por debajo del punto
     static let presetOrder = ["Plano", "Rock", "Pop", "Electrónica", "Vocal", "Acústica", "Noche"]
     static let presets: [String: [Double]] = [
@@ -146,8 +146,8 @@ struct SoundSettings: Codable, Equatable {
     /// 0…100 → hasta +8 dB
     var treble: Double = 10
 
-    /// Hasta +18 dB (antes +12): graves con mucha más fuerza.
-    var bassDb: Double { bass * 0.18 }
+    /// Hasta +24 dB (el máximo del ecualizador de iOS): graves muy potentes.
+    var bassDb: Double { bass * 0.24 }
     var trebleDb: Double { treble * 0.08 }
 
     var isModified: Bool { bass > 0 || treble > 0 || (eqOn && preset != "Plano") }

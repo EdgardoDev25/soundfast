@@ -53,6 +53,8 @@ final class AppUI: ObservableObject {
     @Published var query = ""
     @Published var npOpen = false
     let motion = SheetMotion()
+    /// Sube al cerrar "Sonando ahora": la biblioteca centra la canción que suena.
+    @Published private(set) var revealTick = 0
     @Published var soundOpen = false
     @Published var settingsOpen = false
     @Published var sheet: Sheet?
@@ -81,6 +83,7 @@ final class AppUI: ObservableObject {
             npOpen = false
             motion.drag = 0
         }
+        revealTick += 1
     }
 
     private let panelSpring = Animation.spring(response: 0.42, dampingFraction: 0.9)

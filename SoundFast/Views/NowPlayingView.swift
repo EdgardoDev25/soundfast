@@ -16,6 +16,8 @@ struct NowPlayingView: View {
     @State private var axis: Axis?
     @State private var dragOnArt = false
     @State private var artX: CGFloat = 0
+    /// Mientras la portada sale volando conserva la imagen de la canción anterior.
+    @State private var leavingSong: Song?
     @State private var scrub: Double?
     @State private var scrubStart: Double = 0
 
@@ -34,7 +36,7 @@ struct NowPlayingView: View {
                 topBar(song)
                     .padding(.top, 8)
 
-                artwork(song, size: artSize)
+                artwork(leavingSong ?? song, size: artSize)
                     .padding(.top, 16)
 
                 Text(prefs.playback.swipeArt ? "‹‹ DESLIZA LA PORTADA PARA CAMBIAR ››" : " ")
@@ -193,6 +195,7 @@ struct NowPlayingView: View {
         }
         .frame(width: size, height: size)
         .shadow(color: .black.opacity(0.45), radius: 30, y: 30)
+        .scaleEffect(1 - min(0.08, abs(artX) / 2500))
         .offset(x: artX)
         .rotationEffect(.degrees(Double(artX / 45)))
         .opacity(max(0, 1 - Double(abs(artX)) / 520))
@@ -464,14 +467,17 @@ struct NowPlayingView: View {
     /// Anima la portada hacia afuera, cambia de canción y la trae desde el otro lado.
     private func swipe(_ dir: CGFloat) {
         let out: CGFloat = dir < 0 ? -440 : 440
-        withAnimation(.easeIn(duration: 0.22)) { artX = out }
+        // El audio cambia al instante (con fundido); la portada vieja termina de salir
+        // con su imagen y la nueva entra ya con la suya.
+        leavingSong = player.current
+        if dir < 0 { player.next() } else { player.previousTrack() }
+        withAnimation(.easeOut(duration: 0.2)) { artX = out }
         Task {
-            try? await Task.sleep(nanoseconds: 230_000_000)
-            if dir < 0 { player.next() } else { player.previousTrack() }
-            // Entra desde más cerca y ya desvanecida: se siente como un fundido.
-            artX = -out * 0.45
+            try? await Task.sleep(nanoseconds: 200_000_000)
+            leavingSong = nil
+            artX = -out * 0.4
             try? await Task.sleep(nanoseconds: 16_000_000)
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.86)) { artX = 0 }
+            withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) { artX = 0 }
         }
     }
 }

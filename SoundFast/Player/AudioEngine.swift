@@ -32,9 +32,13 @@ final class AudioEngine {
     /// Volumen medido de cada canción, para normalizar.
     let loudness = LoudnessStore()
 
-    /// Duración del fundido al cambiar de canción a mano.
-    private let skipFadeOut = 0.55
-    private let skipFadeIn = 0.35
+    /// Fundido al cambiar de canción a mano: la que sale se apaga despacio
+    /// mientras la nueva entra. Más largo si el usuario usa fundido entre canciones.
+    private var skipFadeOut: Double { crossfade > 0 ? min(2.0, max(1.0, crossfade * 0.4)) : 1.0 }
+    private var skipFadeIn: Double { skipFadeOut * 0.55 }
+    /// Plato que sigue sonando completo mientras se abre la canción nueva;
+    /// empieza a apagarse justo cuando la nueva arranca (sin hueco en medio).
+    private var pendingOut: Deck?
 
     // MARK: Grafo
 
@@ -165,12 +169,12 @@ final class AudioEngine {
         }
         let bell = eq.bands[10]
         bell.frequency = Float(s.bassFreq)
-        bell.gain = Float(s.bassDb * SoundSettings.bassBellShare)
+        bell.gain = Float(min(24, s.bassDb * SoundSettings.bassBellShare))
         bell.bypass = s.bass <= 0
 
         let shelf = eq.bands[12]
         shelf.frequency = Float(s.bassFreq * SoundSettings.bassShelfRatio)
-        shelf.gain = Float(s.bassDb * SoundSettings.bassShelfShare)
+        shelf.gain = Float(min(24, s.bassDb * SoundSettings.bassShelfShare))
         shelf.bypass = s.bass <= 0
 
         let treble = eq.bands[11]
@@ -178,7 +182,7 @@ final class AudioEngine {
         treble.bypass = s.treble <= 0
 
         // Poco margen: el limitador atrapa los picos y así el refuerzo se siente completo.
-        eq.globalGain = -Float(max(0, s.peakGain) * 0.22)
+        eq.globalGain = -Float(max(0, s.peakGain) * 0.15)
     }
 
     // MARK: Normalizar volumen
@@ -222,13 +226,24 @@ final class AudioEngine {
     func load(_ song: Song, at time: Double = 0, autoplay: Bool, transition: Bool = false) async {
         generation += 1
         let gen = generation
-        let smooth = transition && autoplay && isPlaying && currentFile != nil && !active.items.isEmpty
+        let smooth = transition && autoplay && isPlaying && (!active.items.isEmpty || pendingOut != nil)
 
         if smooth {
-            beginFadeOut(active, duration: skipFadeOut)
-            activeIndex = 1 - activeIndex
-            active.node.stop()
-            active.items.removeAll()
+            if !active.items.isEmpty {
+                // Lo que suena ahora queda sonando hasta que la nueva esté lista.
+                if let previous = pendingOut, previous !== active {
+                    previous.node.stop()
+                    previous.items.removeAll()
+                    previous.node.volume = 1
+                }
+                pendingOut = active
+                activeIndex = 1 - activeIndex
+                if let f = fadeOut, f.deck === active { fadeOut = nil }
+                active.node.stop()
+                active.items.removeAll()
+                active.node.volume = 1
+            }
+            // (Si ya había una esperando por un cambio rápido anterior, se mantiene.)
             fadeIn = nil
             lookaheadDoneFor = nil
             lookaheadBusy = false
@@ -247,19 +262,32 @@ final class AudioEngine {
             let url = try await MediaFiles.playableURL(for: song)
             guard gen == generation else { return }
             let file = try AVAudioFile(forReading: url)
-            let g = await gain(for: song, url: url)
             guard gen == generation else { return }
+            // Normalizar sin demorar el arranque: si aún no se midió, se mide
+            // en segundo plano y se aplica al terminar.
+            let cachedGain = normalize ? loudness.cached(song.id) : 0
             currentFile = file
-            currentGain = g
+            currentGain = cachedGain ?? 0
             isLoading = false
             // Si se pausó mientras cargaba, isPlaying ya es false.
             if isPlaying { try start(from: pausedTime, fadeIn: smooth ? skipFadeIn : 0) }
+            if cachedGain == nil { measureLater(song, url: url, generation: gen) }
         } catch {
             guard gen == generation else { return }
             isLoading = false
             isPlaying = false
             stopDecks()
             onError?(error)
+        }
+    }
+
+    private func measureLater(_ song: Song, url: URL, generation gen: Int) {
+        Task { [weak self] in
+            guard let self else { return }
+            let g = await self.loudness.gain(for: song.id, url: url)
+            guard gen == self.generation, self.normalize, self.currentSongId == song.id else { return }
+            self.currentGain = g
+            self.active.gain.globalGain = g
         }
     }
 
@@ -317,6 +345,17 @@ final class AudioEngine {
         let deck = active
         deck.node.stop()
         deck.items.removeAll()
+        if let out = pendingOut {
+            pendingOut = nil
+            if inDuration > 0 {
+                // Ahora sí: la anterior se apaga mientras esta entra.
+                beginFadeOut(out, duration: skipFadeOut)
+            } else {
+                out.node.stop()
+                out.items.removeAll()
+                out.node.volume = 1
+            }
+        }
         if inDuration == 0 { stopFadeOut() }
         connect(deck, format: file.processingFormat)
         deck.gain.globalGain = currentGain
@@ -372,6 +411,7 @@ final class AudioEngine {
             deck.items.removeAll()
             deck.node.volume = 1
         }
+        pendingOut = nil
         fadeOut = nil
         fadeIn = nil
         lookaheadDoneFor = nil

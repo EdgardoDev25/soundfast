@@ -12,6 +12,7 @@ struct SoundFastApp: App {
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
+        FontRegistry.registerAll()
         let library = LibraryStore()
         let prefs = Preferences()
         _library = StateObject(wrappedValue: library)
