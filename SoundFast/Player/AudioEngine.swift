@@ -80,6 +80,10 @@ final class AudioEngine {
         let node = AVAudioPlayerNode()
         /// Solo para la ganancia de normalización (globalGain admite subir, no solo bajar).
         let gain = AVAudioUnitEQ(numberOfBands: 1)
+        /// Recibe al reproductor en el formato de cada canción. Los mezcladores sí se
+        /// pueden reconectar con el audio en marcha; la ganancia (EQ) no, así que
+        /// esa queda conectada una sola vez en formato fijo.
+        let input = AVAudioMixerNode()
         let bus: AVAudioNodeBus
         var items: [Item] = []
         var format: AVAudioFormat?
@@ -117,6 +121,7 @@ final class AudioEngine {
         engine.attach(limiter)
         for deck in decks {
             engine.attach(deck.node)
+            engine.attach(deck.input)
             engine.attach(deck.gain)
         }
 
@@ -125,8 +130,9 @@ final class AudioEngine {
         engine.connect(eq, to: limiter, format: format)
         engine.connect(limiter, to: engine.mainMixerNode, format: format)
         for deck in decks {
-            engine.connect(deck.node, to: deck.gain, format: nil)
-            engine.connect(deck.gain, to: mix, fromBus: 0, toBus: deck.bus, format: nil)
+            engine.connect(deck.node, to: deck.input, format: nil)
+            engine.connect(deck.input, to: deck.gain, format: format)
+            engine.connect(deck.gain, to: mix, fromBus: 0, toBus: deck.bus, format: format)
         }
 
         for (i, f) in SoundSettings.bandFrequencies.enumerated() {
@@ -384,10 +390,9 @@ final class AudioEngine {
            current.channelCount == format.channelCount {
             return
         }
+        // Solo se reconecta reproductor → mezclador del plato (seguro en marcha).
         engine.disconnectNodeOutput(deck.node)
-        engine.disconnectNodeOutput(deck.gain)
-        engine.connect(deck.node, to: deck.gain, format: format)
-        engine.connect(deck.gain, to: mix, fromBus: 0, toBus: deck.bus, format: format)
+        engine.connect(deck.node, to: deck.input, format: format)
         deck.format = format
     }
 
