@@ -1,5 +1,13 @@
 import AVKit
 import SwiftUI
+import UIKit
+
+/// Desplazamiento de "Sonando ahora" mientras se arrastra. Va aparte de AppUI
+/// para que, durante el gesto, solo se muevan las capas y no se redibuje la biblioteca.
+@MainActor
+final class SheetMotion: ObservableObject {
+    @Published var drag: CGFloat = 0
+}
 
 /// Estado de navegación de la interfaz.
 @MainActor
@@ -8,12 +16,14 @@ final class AppUI: ObservableObject {
 
     enum Sheet: Identifiable {
         case queue
+        case effects
         case addTo(songId: String)
         case picker(playlistId: String)
 
         var id: String {
             switch self {
             case .queue: return "queue"
+            case .effects: return "effects"
             case .addTo(let s): return "addTo-\(s)"
             case .picker(let p): return "picker-\(p)"
             }
@@ -40,7 +50,7 @@ final class AppUI: ObservableObject {
     @Published var openList: String?
     @Published var query = ""
     @Published var npOpen = false
-    @Published var npDrag: CGFloat = 0
+    let motion = SheetMotion()
     @Published var soundOpen = false
     @Published var settingsOpen = false
     @Published var sheet: Sheet?
@@ -55,17 +65,24 @@ final class AppUI: ObservableObject {
     }
 
     func openNowPlaying() {
-        withAnimation(.spring(response: 0.45, dampingFraction: 0.86)) {
+        hideKeyboard()
+        withAnimation(.spring(response: 0.46, dampingFraction: 0.86)) {
             npOpen = true
-            npDrag = 0
+            motion.drag = 0
         }
     }
 
-    func closeNowPlaying() {
-        withAnimation(.spring(response: 0.45, dampingFraction: 0.86)) {
+    /// `velocity`: rapidez del dedo al soltar (pt/s), para que el cierre la continúe.
+    func closeNowPlaying(velocity: CGFloat = 0) {
+        let response = velocity > 1200 ? 0.34 : 0.42
+        withAnimation(.spring(response: response, dampingFraction: 0.9)) {
             npOpen = false
-            npDrag = 0
+            motion.drag = 0
         }
+    }
+
+    func hideKeyboard() {
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
     }
 }
 
@@ -83,8 +100,7 @@ struct CircleIconButton: View {
                 .font(.system(size: size * 0.4, weight: .semibold))
                 .foregroundStyle(Ink.text)
                 .frame(width: size, height: size)
-                .background(prefs.theme.surf, in: Circle())
-                .overlay(Circle().stroke(Ink.border, lineWidth: 1))
+                .surface(prefs, Circle(), border: Ink.border)
         }
         .buttonStyle(PressableStyle())
     }
@@ -143,7 +159,7 @@ struct Chip: View {
             Haptics.soft()
         } label: {
             Text(label)
-                .font(mono ? .mono(12, .bold) : .sora(13, .semibold))
+                .font(mono ? .mono(12, .bold) : .montserrat(13, .semibold))
                 .foregroundStyle(selected ? prefs.accent.color : Ink.chipText)
                 .padding(.horizontal, fullWidth ? 0 : 14)
                 .frame(maxWidth: fullWidth ? .infinity : nil)
@@ -198,7 +214,7 @@ struct ArtworkView: View {
                     .scaledToFill()
             } else {
                 Text(song?.initial ?? "")
-                    .font(.sora(letterSize, .heavy))
+                    .font(.montserrat(letterSize, .heavy))
                     .tracking(-letterSize * 0.03)
                     .foregroundStyle(song.map { ArtColors.fg($0.hue) } ?? Ink.dim)
             }
@@ -267,7 +283,7 @@ struct Toast: View {
 
     var body: some View {
         Text(text)
-            .font(.sora(13, .semibold))
+            .font(.montserrat(13, .semibold))
             .foregroundStyle(Ink.text)
             .multilineTextAlignment(.center)
             .padding(.horizontal, 16)
@@ -284,7 +300,6 @@ extension View {
     @MainActor
     func card(_ prefs: Preferences, radius: CGFloat = 24, padding: CGFloat = 16) -> some View {
         self.padding(padding)
-            .background(prefs.theme.surf, in: RoundedRectangle(cornerRadius: radius, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: radius, style: .continuous).stroke(Ink.cardBorder, lineWidth: 1))
+            .surface(prefs, RoundedRectangle(cornerRadius: radius, style: .continuous), border: Ink.cardBorder)
     }
 }

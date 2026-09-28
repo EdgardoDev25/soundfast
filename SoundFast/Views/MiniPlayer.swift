@@ -63,7 +63,7 @@ struct MiniPlayer: View {
             ArtworkView(song: song, size: 46, radius: 10, letterSize: 19)
             VStack(alignment: .leading, spacing: 2) {
                 Text(song?.title ?? "")
-                    .font(.sora(14, .semibold))
+                    .font(.montserrat(14, .semibold))
                     .foregroundStyle(Ink.text)
                     .lineLimit(1)
                 if seekTarget != nil {
@@ -77,7 +77,7 @@ struct MiniPlayer: View {
                         Text("·")
                         Text(song?.artist ?? "").lineLimit(1)
                     }
-                    .font(.sora(12))
+                    .font(.montserrat(12))
                     .foregroundStyle(Ink.dim)
                 }
             }
@@ -109,8 +109,7 @@ struct MiniPlayer: View {
         .padding(.trailing, 8)
         .padding(.bottom, 6)
         .frame(height: 70)
-        .background(prefs.theme.surf2, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(Ink.border, lineWidth: 1))
+        .surface(prefs, RoundedRectangle(cornerRadius: 18, style: .continuous), raised: true, border: Ink.border)
         .overlay(alignment: .bottom) {
             GeometryReader { geo in
                 ZStack(alignment: .leading) {

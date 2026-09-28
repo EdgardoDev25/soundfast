@@ -7,6 +7,9 @@ struct LibraryView: View {
     @EnvironmentObject private var player: PlayerController
     @EnvironmentObject private var ui: AppUI
 
+    /// Modo "Ordenar" dentro de una lista (arrastrar para reordenar).
+    @State private var reordering = false
+
     private var accent: Color { prefs.accent.color }
 
     private var playlist: Playlist? {
@@ -45,7 +48,7 @@ struct LibraryView: View {
 
     private var showAZ: Bool {
         ui.tab == .songs && trimmedQuery.isEmpty && prefs.playback.showAz
-            && prefs.playback.sortBy == "titulo" && library.songs.count > 12
+            && prefs.playback.sortBy == "titulo" && prefs.playback.sortAscending && library.songs.count > 12
     }
 
     var body: some View {
@@ -54,9 +57,6 @@ struct LibraryView: View {
             header
             if ui.tab != .lists {
                 searchField
-            }
-            if !songs.isEmpty && (ui.tab != .lists || playlist != nil) {
-                actions(songs)
             }
             ZStack(alignment: .trailing) {
                 content(songs)
@@ -68,7 +68,7 @@ struct LibraryView: View {
                 }
                 if let letter = ui.azLetter {
                     Text(letter)
-                        .font(.sora(36, .heavy))
+                        .font(.montserrat(36, .heavy))
                         .foregroundStyle(accent)
                         .frame(width: 72, height: 72)
                         .background(Color(hex: 0x1F1F24), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
@@ -80,8 +80,8 @@ struct LibraryView: View {
                 }
             }
         }
-        .background(prefs.theme.bg)
         .safeAreaInset(edge: .bottom, spacing: 0) { TabBar() }
+        .onChange(of: ui.openList) { _, _ in reordering = false }
     }
 
     // MARK: Encabezado
@@ -109,7 +109,7 @@ struct LibraryView: View {
                 }
 
                 Text(headTitle)
-                    .font(.sora(34, .heavy))
+                    .font(.montserrat(34, .heavy))
                     .tracking(-0.7)
                     .foregroundStyle(Ink.text)
                     .lineLimit(1)
@@ -120,13 +120,22 @@ struct LibraryView: View {
 
                 HStack(spacing: 10) {
                     Text(headSub)
-                        .font(.sora(13))
+                        .font(.montserrat(13))
                         .foregroundStyle(Ink.dim)
                     if let playlist {
                         Button("Renombrar") { ui.modal = .rename(playlistId: playlist.id) }
-                            .font(.sora(13, .semibold))
+                            .font(.montserrat(13, .semibold))
                             .foregroundStyle(accent)
                             .buttonStyle(.plain)
+                        if playlist.songIds.count > 1 {
+                            Button(reordering ? "Listo" : "Ordenar") {
+                                withAnimation(.easeOut(duration: 0.2)) { reordering.toggle() }
+                                Haptics.soft()
+                            }
+                            .font(.montserrat(13, .semibold))
+                            .foregroundStyle(accent)
+                            .buttonStyle(.plain)
+                        }
                     }
                 }
             }
@@ -176,7 +185,7 @@ struct LibraryView: View {
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(Ink.dim)
             TextField("", text: $ui.query, prompt: Text("Buscar canción o artista").foregroundColor(Ink.muted))
-                .font(.sora(15))
+                .font(.montserrat(15))
                 .foregroundStyle(Ink.text)
                 .tint(accent)
                 .autocorrectionDisabled()
@@ -197,20 +206,21 @@ struct LibraryView: View {
         }
         .padding(.horizontal, 12)
         .frame(height: 44)
-        .background(prefs.theme.surf, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .surface(prefs, RoundedRectangle(cornerRadius: 14, style: .continuous))
         .padding(.horizontal, 20)
         .padding(.top, 14)
     }
 
     private func actions(_ songs: [Song]) -> some View {
         let ids = songs.map(\.id)
-        return HStack(spacing: 10) {
+        // Va dentro de la lista: se oculta al hacer scroll.
+        return HStack(spacing: 8) {
             Button {
                 if let first = ids.first { player.playFrom(first, ids: ids, name: contextName, forceShuffle: false) }
                 ui.openNowPlaying()
             } label: {
                 Label("Reproducir", systemImage: "play.fill")
-                    .font(.sora(14, .bold))
+                    .font(.montserrat(14, .bold))
                     .foregroundStyle(Ink.onAccent)
                     .frame(maxWidth: .infinity)
                     .frame(height: 42)
@@ -222,15 +232,23 @@ struct LibraryView: View {
                 if let pick = ids.randomElement() { player.playFrom(pick, ids: ids, name: contextName, forceShuffle: true) }
                 ui.openNowPlaying()
             } label: {
-                Label("Aleatorio", systemImage: "shuffle")
-                    .font(.sora(14, .semibold))
-                    .foregroundStyle(Ink.text)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 42)
-                    .background(prefs.theme.surf, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Color(hex: 0x2C2C32), lineWidth: 1))
+                HStack(spacing: 6) {
+                    Image(systemName: "shuffle").font(.system(size: 13, weight: .bold))
+                    Text("Aleatorio").font(.montserrat(13, .semibold))
+                }
+                .foregroundStyle(Ink.text)
+                .padding(.horizontal, 12)
+                .frame(height: 42)
+                .surface(prefs, RoundedRectangle(cornerRadius: 12, style: .continuous), border: Color(hex: 0x2C2C32))
             }
             .buttonStyle(PressableStyle(scale: 0.97))
+
+            if playlist == nil {
+                SortMenu()
+                if ui.tab == .songs {
+                    RefreshButton()
+                }
+            }
         }
         .padding(.horizontal, 20)
         .padding(.top, 12)
@@ -246,7 +264,13 @@ struct LibraryView: View {
         } else {
             ScrollViewReader { proxy in
                 List {
-                    if let playlist {
+                    if !songs.isEmpty {
+                        actions(songs)
+                            .plainRow()
+                            .moveDisabled(true)
+                    }
+
+                    if let playlist, !reordering {
                         Button {
                             ui.sheet = .picker(playlistId: playlist.id)
                         } label: {
@@ -256,7 +280,7 @@ struct LibraryView: View {
                                     .frame(width: 48, height: 48)
                                     .overlay(Image(systemName: "plus").font(.system(size: 18, weight: .bold)).foregroundStyle(accent))
                                 Text("Añadir canciones")
-                                    .font(.sora(15, .semibold))
+                                    .font(.montserrat(15, .semibold))
                                     .foregroundStyle(accent)
                                 Spacer()
                             }
@@ -281,13 +305,14 @@ struct LibraryView: View {
                         .id(song.id)
                         .plainRow()
                     }
+                    .onMove(perform: reorderAction)
 
                     emptyState(songs)
                         .plainRow()
 
-                    if let playlist {
+                    if let playlist, !reordering {
                         Button("Eliminar lista") { ui.modal = .deleteList(playlistId: playlist.id) }
-                            .font(.sora(14, .semibold))
+                            .font(.montserrat(14, .semibold))
                             .foregroundStyle(Ink.danger)
                             .buttonStyle(.plain)
                             .frame(maxWidth: .infinity)
@@ -303,11 +328,22 @@ struct LibraryView: View {
                 .scrollContentBackground(.hidden)
                 .environment(\.defaultMinListRowHeight, 1)
                 .scrollDismissesKeyboard(.immediately)
+                .environment(\.editMode, .constant(reordering ? .active : .inactive))
                 .onChange(of: ui.azLetter) { _, letter in
                     guard let letter, let target = firstSong(from: letter) else { return }
                     proxy.scrollTo(target, anchor: .top)
                 }
             }
+        }
+    }
+
+    /// Solo dentro de una lista y con "Ordenar" activo.
+    private var reorderAction: ((IndexSet, Int) -> Void)? {
+        guard reordering, let playlist else { return nil }
+        let id = playlist.id
+        return { from, to in
+            library.movePlaylistSongs(id, from: from, to: to)
+            Haptics.tick()
         }
     }
 
@@ -325,8 +361,8 @@ struct LibraryView: View {
             EmptyLibrary()
         } else if !trimmedQuery.isEmpty && ui.tab != .lists {
             VStack(spacing: 6) {
-                Text("Sin resultados").font(.sora(16, .semibold)).foregroundStyle(Ink.text)
-                Text("No hay canciones para “\(ui.query)”").font(.sora(13)).foregroundStyle(Ink.dim)
+                Text("Sin resultados").font(.montserrat(16, .semibold)).foregroundStyle(Ink.text)
+                Text("No hay canciones para “\(ui.query)”").font(.montserrat(13)).foregroundStyle(Ink.dim)
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 48)
@@ -336,9 +372,9 @@ struct LibraryView: View {
                 Image(systemName: "heart")
                     .font(.system(size: 36, weight: .regular))
                     .foregroundStyle(Color(hex: 0x5A5A62))
-                Text("Aún no tienes favoritos").font(.sora(17, .bold)).foregroundStyle(Ink.text)
+                Text("Aún no tienes favoritos").font(.montserrat(17, .bold)).foregroundStyle(Ink.text)
                 Text("Toca el corazón mientras suena una canción para guardarla aquí.")
-                    .font(.sora(14)).foregroundStyle(Ink.dim)
+                    .font(.montserrat(14)).foregroundStyle(Ink.dim)
                     .multilineTextAlignment(.center)
             }
             .frame(maxWidth: .infinity)
@@ -346,9 +382,9 @@ struct LibraryView: View {
             .padding(.horizontal, 40)
         } else if playlist != nil {
             VStack(spacing: 8) {
-                Text("Esta lista está vacía").font(.sora(17, .bold)).foregroundStyle(Ink.text)
+                Text("Esta lista está vacía").font(.montserrat(17, .bold)).foregroundStyle(Ink.text)
                 Text("Añade canciones para escucharlas aparte.")
-                    .font(.sora(14)).foregroundStyle(Ink.dim)
+                    .font(.montserrat(14)).foregroundStyle(Ink.dim)
                     .multilineTextAlignment(.center)
             }
             .frame(maxWidth: .infinity)
@@ -388,11 +424,11 @@ struct SongRow: View {
                 ArtworkView(song: song, size: 48, radius: 10, letterSize: 20)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(song.title)
-                        .font(.sora(15, .semibold))
+                        .font(.montserrat(15, .semibold))
                         .foregroundStyle(isCurrent ? accent : Ink.text)
                         .lineLimit(1)
                     Text(song.artist)
-                        .font(.sora(13))
+                        .font(.montserrat(13))
                         .foregroundStyle(Ink.dim)
                         .lineLimit(1)
                 }
@@ -490,7 +526,7 @@ struct PlaylistsList: View {
                             .frame(width: 56, height: 56)
                             .overlay(Image(systemName: "plus").font(.system(size: 20, weight: .bold)).foregroundStyle(accent))
                         Text("Nueva lista")
-                            .font(.sora(16, .semibold))
+                            .font(.montserrat(16, .semibold))
                             .foregroundStyle(accent)
                         Spacer()
                     }
@@ -509,11 +545,11 @@ struct PlaylistsList: View {
                             PlaylistTile(playlist: p, size: 56)
                             VStack(alignment: .leading, spacing: 3) {
                                 Text(p.name)
-                                    .font(.sora(16, .semibold))
+                                    .font(.montserrat(16, .semibold))
                                     .foregroundStyle(Ink.text)
                                     .lineLimit(1)
                                 Text(Format.count(p.songIds.count, "canción", "canciones"))
-                                    .font(.sora(13))
+                                    .font(.montserrat(13))
                                     .foregroundStyle(Ink.dim)
                             }
                             Spacer(minLength: 0)
@@ -544,7 +580,7 @@ struct PlaylistTile: View {
         } else {
             let first = playlist.songIds.first.flatMap { library.song($0) }
             Text(playlist.name.first.map { String($0).uppercased() } ?? "·")
-                .font(.sora(size * 0.4, .heavy))
+                .font(.montserrat(size * 0.4, .heavy))
                 .foregroundStyle(first.map { ArtColors.fg($0.hue) } ?? Ink.dim)
                 .frame(width: size, height: size)
                 .background(first.map { ArtColors.bg($0.hue) } ?? Color(hex: 0x232329),
@@ -566,17 +602,17 @@ struct EmptyLibrary: View {
                 .font(.system(size: 34, weight: .semibold))
                 .foregroundStyle(Color(hex: 0x5A5A62))
             Text("Aún no hay canciones")
-                .font(.sora(17, .bold))
+                .font(.montserrat(17, .bold))
                 .foregroundStyle(Ink.text)
             Text("Importa archivos de audio o cópialos a la carpeta SoundFast desde la app Archivos o desde “Dispositivos Apple” en Windows.")
-                .font(.sora(14))
+                .font(.montserrat(14))
                 .foregroundStyle(Ink.dim)
                 .multilineTextAlignment(.center)
             Button {
                 ui.importing = true
             } label: {
                 Text("Importar archivos")
-                    .font(.sora(14, .bold))
+                    .font(.montserrat(14, .bold))
                     .foregroundStyle(Ink.onAccent)
                     .padding(.horizontal, 22)
                     .frame(height: 42)
@@ -588,7 +624,7 @@ struct EmptyLibrary: View {
                 Button("Usar la biblioteca de Música") {
                     Task { await library.requestMusicAccess() }
                 }
-                .font(.sora(14, .semibold))
+                .font(.montserrat(14, .semibold))
                 .foregroundStyle(prefs.accent.color)
                 .buttonStyle(.plain)
             }
@@ -617,9 +653,17 @@ struct TabBar: View {
         .padding(.horizontal, 12)
         .padding(.top, 6)
         .padding(.bottom, 2)
-        .background(prefs.theme.tab.ignoresSafeArea(edges: .bottom))
+        .background {
+            if prefs.theme.glass {
+                Rectangle().fill(.ultraThinMaterial).ignoresSafeArea(edges: .bottom)
+            } else {
+                prefs.theme.tab.ignoresSafeArea(edges: .bottom)
+            }
+        }
         .overlay(alignment: .top) {
-            Rectangle().fill(Color(hex: 0x1F1F24)).frame(height: 1)
+            Rectangle()
+                .fill(prefs.theme.glass ? Color.white.opacity(0.14) : Color(hex: 0x1F1F24))
+                .frame(height: 1)
         }
     }
 
@@ -634,7 +678,7 @@ struct TabBar: View {
                 Image(systemName: on && t == .favs ? "heart.fill" : icon)
                     .font(.system(size: 20, weight: .semibold))
                 Text(label)
-                    .font(.sora(10.5, .semibold))
+                    .font(.montserrat(10.5, .semibold))
             }
             .foregroundStyle(on ? prefs.accent.color : Ink.tabOff)
             .frame(maxWidth: .infinity)
@@ -642,5 +686,71 @@ struct TabBar: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Ordenar y actualizar
+
+/// Menú de orden: criterio y dirección.
+struct SortMenu: View {
+    @EnvironmentObject private var prefs: Preferences
+
+    private var directionLabels: (asc: String, desc: String) {
+        switch prefs.playback.sortBy {
+        case "fecha": return ("Más antiguas primero", "Más recientes primero")
+        case "duracion": return ("Más cortas primero", "Más largas primero")
+        default: return ("A → Z", "Z → A")
+        }
+    }
+
+    var body: some View {
+        Menu {
+            Picker("Ordenar por", selection: $prefs.playback.sortBy) {
+                ForEach(PlaybackSettings.sortOptions, id: \.id) { option in
+                    Label(option.name, systemImage: option.icon).tag(option.id)
+                }
+            }
+            Picker("Dirección", selection: $prefs.playback.sortAscending) {
+                Label(directionLabels.asc, systemImage: "arrow.up").tag(true)
+                Label(directionLabels.desc, systemImage: "arrow.down").tag(false)
+            }
+        } label: {
+            Image(systemName: "arrow.up.arrow.down")
+                .font(.system(size: 15, weight: .bold))
+                .foregroundStyle(Ink.text)
+                .frame(width: 42, height: 42)
+                .surface(prefs, RoundedRectangle(cornerRadius: 12, style: .continuous), border: Color(hex: 0x2C2C32))
+        }
+        .menuOrder(.fixed)
+        .accessibilityLabel("Ordenar canciones")
+        .onChange(of: prefs.playback.sortBy) { _, _ in Haptics.soft() }
+        .onChange(of: prefs.playback.sortAscending) { _, _ in Haptics.soft() }
+    }
+}
+
+/// Busca canciones nuevas (importadas, copiadas desde Archivos o desde Windows).
+struct RefreshButton: View {
+    @EnvironmentObject private var library: LibraryStore
+    @EnvironmentObject private var prefs: Preferences
+
+    var body: some View {
+        Button {
+            Haptics.tap()
+            Task { await library.refresh(announce: true) }
+        } label: {
+            Image(systemName: "arrow.clockwise")
+                .font(.system(size: 15, weight: .bold))
+                .foregroundStyle(library.isScanning ? prefs.accent.color : Ink.text)
+                .rotationEffect(.degrees(library.isScanning ? 360 : 0))
+                .animation(
+                    library.isScanning ? .linear(duration: 0.9).repeatForever(autoreverses: false) : .default,
+                    value: library.isScanning
+                )
+                .frame(width: 42, height: 42)
+                .surface(prefs, RoundedRectangle(cornerRadius: 12, style: .continuous), border: Color(hex: 0x2C2C32))
+        }
+        .buttonStyle(PressableStyle())
+        .disabled(library.isScanning)
+        .accessibilityLabel("Actualizar biblioteca")
     }
 }

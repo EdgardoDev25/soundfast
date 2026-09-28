@@ -12,12 +12,12 @@ private struct SheetHeader: View {
     var body: some View {
         HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: 3) {
-                Text(title).font(.sora(20, .heavy)).foregroundStyle(Ink.text).lineLimit(1)
-                Text(subtitle).font(.sora(13)).foregroundStyle(Ink.dim).lineLimit(1)
+                Text(title).font(.montserrat(20, .heavy)).foregroundStyle(Ink.text).lineLimit(1)
+                Text(subtitle).font(.montserrat(13)).foregroundStyle(Ink.dim).lineLimit(1)
             }
             Spacer(minLength: 12)
             Button("Listo", action: onDone)
-                .font(.sora(15, .semibold))
+                .font(.montserrat(15, .semibold))
                 .foregroundStyle(prefs.accent.color)
                 .buttonStyle(.plain)
                 .padding(.top, 2)
@@ -33,7 +33,7 @@ private extension View {
     func sheetStyle(_ prefs: Preferences) -> some View {
         self.presentationDetents([.medium, .large])
             .presentationDragIndicator(.visible)
-            .presentationBackground(prefs.theme.surf2)
+            .sheetBackground(prefs)
             .presentationCornerRadius(28)
     }
 }
@@ -58,7 +58,7 @@ struct QueueSheet: View {
                 HStack(spacing: 12) {
                     ArtworkView(song: current, size: 44, radius: 9, letterSize: 18)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(current.title).font(.sora(15, .semibold)).foregroundStyle(prefs.accent.color).lineLimit(1)
+                        Text(current.title).font(.montserrat(15, .semibold)).foregroundStyle(prefs.accent.color).lineLimit(1)
                         Text("SONANDO AHORA").eyebrow(10, color: Ink.dim)
                     }
                     Spacer(minLength: 0)
@@ -71,7 +71,7 @@ struct QueueSheet: View {
 
             if upcoming.isEmpty {
                 Text("No hay más canciones en la cola")
-                    .font(.sora(14))
+                    .font(.montserrat(14))
                     .foregroundStyle(Ink.dim)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
@@ -81,8 +81,8 @@ struct QueueSheet: View {
                         HStack(spacing: 12) {
                             ArtworkView(song: song, size: 44, radius: 9, letterSize: 18)
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(song?.title ?? "—").font(.sora(15, .semibold)).foregroundStyle(Ink.text).lineLimit(1)
-                                Text(song?.artist ?? "").font(.sora(13)).foregroundStyle(Ink.dim).lineLimit(1)
+                                Text(song?.title ?? "—").font(.montserrat(15, .semibold)).foregroundStyle(Ink.text).lineLimit(1)
+                                Text(song?.artist ?? "").font(.montserrat(13)).foregroundStyle(Ink.dim).lineLimit(1)
                             }
                             Spacer(minLength: 0)
                         }
@@ -137,7 +137,7 @@ struct AddToPlaylistSheet: View {
                                 .strokeBorder(Color(hex: 0x3A3A42), style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
                                 .frame(width: 52, height: 52)
                                 .overlay(Image(systemName: "plus").font(.system(size: 20, weight: .bold)).foregroundStyle(prefs.accent.color))
-                            Text("Nueva lista").font(.sora(16, .semibold)).foregroundStyle(prefs.accent.color)
+                            Text("Nueva lista").font(.montserrat(16, .semibold)).foregroundStyle(prefs.accent.color)
                             Spacer()
                         }
                         .padding(.horizontal, 20)
@@ -155,8 +155,8 @@ struct AddToPlaylistSheet: View {
                             HStack(spacing: 14) {
                                 PlaylistTile(playlist: p, size: 52)
                                 VStack(alignment: .leading, spacing: 3) {
-                                    Text(p.name).font(.sora(16, .semibold)).foregroundStyle(Ink.text).lineLimit(1)
-                                    Text(Format.count(p.songIds.count, "canción", "canciones")).font(.sora(13)).foregroundStyle(Ink.dim)
+                                    Text(p.name).font(.montserrat(16, .semibold)).foregroundStyle(Ink.text).lineLimit(1)
+                                    Text(Format.count(p.songIds.count, "canción", "canciones")).font(.montserrat(13)).foregroundStyle(Ink.dim)
                                 }
                                 Spacer(minLength: 0)
                                 CheckCircle(checked: checked, accent: prefs.accent.color)
@@ -210,13 +210,13 @@ struct SongPickerSheet: View {
             HStack(spacing: 10) {
                 Image(systemName: "magnifyingglass").font(.system(size: 15, weight: .semibold)).foregroundStyle(Ink.dim)
                 TextField("", text: $query, prompt: Text("Buscar").foregroundColor(Ink.muted))
-                    .font(.sora(15))
+                    .font(.montserrat(15))
                     .foregroundStyle(Ink.text)
                     .autocorrectionDisabled()
             }
             .padding(.horizontal, 12)
             .frame(height: 40)
-            .background(prefs.theme.surf, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .surface(prefs, RoundedRectangle(cornerRadius: 12, style: .continuous))
             .padding(.horizontal, 20)
             .padding(.bottom, 8)
 
@@ -230,8 +230,8 @@ struct SongPickerSheet: View {
                             HStack(spacing: 14) {
                                 ArtworkView(song: s, size: 44, radius: 9, letterSize: 18)
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text(s.title).font(.sora(15, .semibold)).foregroundStyle(Ink.text).lineLimit(1)
-                                    Text(s.artist).font(.sora(13)).foregroundStyle(Ink.dim).lineLimit(1)
+                                    Text(s.title).font(.montserrat(15, .semibold)).foregroundStyle(Ink.text).lineLimit(1)
+                                    Text(s.artist).font(.montserrat(13)).foregroundStyle(Ink.dim).lineLimit(1)
                                 }
                                 Spacer(minLength: 0)
                                 CheckCircle(checked: selected.contains(s.id), accent: prefs.accent.color)
@@ -265,7 +265,7 @@ struct OnboardingView: View {
         VStack(spacing: 0) {
             Spacer()
             Text("S")
-                .font(.sora(48, .heavy))
+                .font(.montserrat(48, .heavy))
                 .tracking(-2)
                 .foregroundStyle(Ink.onAccent)
                 .frame(width: 96, height: 96)
@@ -273,14 +273,14 @@ struct OnboardingView: View {
                 .shadow(color: prefs.accent.alpha(0.35), radius: 24, y: 14)
             VStack(spacing: 12) {
                 Text(denied ? "Sin acceso a tu música" : "Tu música, a tu manera")
-                    .font(.sora(28, .heavy))
+                    .font(.montserrat(28, .heavy))
                     .tracking(-0.5)
                     .foregroundStyle(Ink.text)
                     .multilineTextAlignment(.center)
                 Text(denied
                      ? "Para ver tus canciones, activa el acceso en Ajustes › SoundFast › Apple Music y biblioteca multimedia. También puedes importar archivos."
                      : "SoundFast lee tu biblioteca para mostrar tus canciones, favoritos y listas, con ecualizador y graves a tu medida. También puedes importar MP3, M4A o FLAC.")
-                    .font(.sora(15))
+                    .font(.montserrat(15))
                     .foregroundStyle(Ink.dim)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
@@ -299,7 +299,7 @@ struct OnboardingView: View {
                     }
                 } label: {
                     Text(denied ? "Abrir Ajustes" : "Permitir acceso a Música")
-                        .font(.sora(16, .bold))
+                        .font(.montserrat(16, .bold))
                         .foregroundStyle(Ink.onAccent)
                         .frame(maxWidth: .infinity)
                         .frame(height: 54)
@@ -311,17 +311,16 @@ struct OnboardingView: View {
                     ui.importing = true
                 } label: {
                     Text("Importar archivos")
-                        .font(.sora(16, .semibold))
+                        .font(.montserrat(16, .semibold))
                         .foregroundStyle(Ink.text)
                         .frame(maxWidth: .infinity)
                         .frame(height: 54)
-                        .background(prefs.theme.surf, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Ink.border, lineWidth: 1))
+                        .surface(prefs, RoundedRectangle(cornerRadius: 16, style: .continuous), border: Ink.border)
                 }
                 .buttonStyle(PressableStyle(scale: 0.97))
 
                 Button("Ahora no") { library.onboarded = true }
-                    .font(.sora(14, .semibold))
+                    .font(.montserrat(14, .semibold))
                     .foregroundStyle(Ink.dim)
                     .buttonStyle(.plain)
                     .padding(.top, 4)
@@ -333,6 +332,6 @@ struct OnboardingView: View {
         .padding(.horizontal, 28)
         .padding(.bottom, 20)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(prefs.theme.bg.ignoresSafeArea())
+        .background(ThemeBackground())
     }
 }

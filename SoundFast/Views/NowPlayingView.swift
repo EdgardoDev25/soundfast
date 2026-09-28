@@ -7,7 +7,11 @@ struct NowPlayingView: View {
     @EnvironmentObject private var player: PlayerController
     @EnvironmentObject private var ui: AppUI
     @EnvironmentObject private var waveforms: WaveformStore
+    @EnvironmentObject private var artwork: ArtworkStore
     @ObservedObject var clock: PlaybackClock
+
+    /// Colores dominantes de la portada actual.
+    @State private var artColors: [Color] = []
 
     @State private var axis: Axis?
     @State private var dragOnArt = false
@@ -59,14 +63,41 @@ struct NowPlayingView: View {
             .padding(.bottom, 8)
             .frame(width: geo.size.width, height: geo.size.height)
             .background {
-                RoundedRectangle(cornerRadius: ui.npDrag > 0 ? 44 : 0, style: .continuous)
-                    .fill(background(song))
-                    .ignoresSafeArea()
+                ZStack {
+                    background(song)
+                    if prefs.visuals.enabled, let song {
+                        NowPlayingEffects(
+                            settings: prefs.visuals,
+                            colors: EffectPalette.colors(
+                                option: prefs.visuals.palette, artwork: artColors,
+                                hue: song.hue, accent: prefs.accent
+                            ),
+                            analyzer: player.analyzer,
+                            playing: player.isPlaying,
+                            visible: ui.npOpen
+                        )
+                        // Oscurece un poco abajo para que los controles se lean bien.
+                        LinearGradient(colors: [.black.opacity(0), .black.opacity(0.45)],
+                                       startPoint: .center, endPoint: .bottom)
+                            .allowsHitTesting(false)
+                    }
+                }
+                // Queda oculto bajo las esquinas de la pantalla cuando está abierta;
+                // se ve al arrastrar hacia abajo.
+                .clipShape(RoundedRectangle(cornerRadius: 44, style: .continuous))
+                .ignoresSafeArea()
             }
             .contentShape(Rectangle())
             .gesture(drag(onArt: false))
         }
         .onAppear { if let song { waveforms.request(song) } }
+        .task(id: player.currentId) {
+            if let s = player.current {
+                artColors = await artwork.palette(s)
+            } else {
+                artColors = []
+            }
+        }
         .onChange(of: player.currentId) { _, _ in
             if let s = player.current { waveforms.request(s) }
         }
@@ -97,7 +128,7 @@ struct NowPlayingView: View {
             VStack(spacing: 2) {
                 Text("REPRODUCIENDO DESDE").eyebrow(10, color: Color.white.opacity(0.55))
                 Text(player.ctxName)
-                    .font(.sora(13, .semibold))
+                    .font(.montserrat(13, .semibold))
                     .foregroundStyle(Ink.text)
                     .lineLimit(1)
                     .frame(maxWidth: 220)
@@ -164,12 +195,12 @@ struct NowPlayingView: View {
         return HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 3) {
                 Text(song?.title ?? "")
-                    .font(.sora(23, .bold))
+                    .font(.montserrat(23, .bold))
                     .tracking(-0.23)
                     .foregroundStyle(Ink.text)
                     .lineLimit(1)
                 Text(song?.artist ?? "")
-                    .font(.sora(15))
+                    .font(.montserrat(15))
                     .foregroundStyle(Color.white.opacity(0.62))
                     .lineLimit(1)
             }
@@ -344,11 +375,15 @@ struct NowPlayingView: View {
                 ui.soundOpen = true
             }
             Spacer()
+            bottomButton("EFECTOS", "sparkles", prefs.visuals.enabled ? accent : Color.white.opacity(0.75)) {
+                ui.sheet = .effects
+            }
+            Spacer()
             bottomButton("COLA", "list.bullet", Color.white.opacity(0.75)) {
                 ui.sheet = .queue
             }
         }
-        .padding(.horizontal, 12)
+        .padding(.horizontal, 4)
     }
 
     private func bottomButton(_ label: String, _ icon: String, _ color: Color, action: @escaping () -> Void) -> some View {
@@ -358,7 +393,7 @@ struct NowPlayingView: View {
                 Text(label).font(.mono(9.5)).tracking(0.8)
             }
             .foregroundStyle(color)
-            .frame(width: 84, height: 48)
+            .frame(width: 72, height: 48)
         }
         .buttonStyle(PressableStyle())
     }
@@ -376,7 +411,9 @@ struct NowPlayingView: View {
                     dragOnArt = onArt
                 }
                 if axis == .vertical {
-                    ui.npDrag = max(0, v.translation.height)
+                    // Hacia arriba ofrece un poco de resistencia en vez de quedarse trabado.
+                    let dy = v.translation.height
+                    ui.motion.drag = dy >= 0 ? dy : -pow(-dy, 0.7)
                 } else if dragOnArt, prefs.playback.swipeArt {
                     artX = v.translation.width
                 }
@@ -388,11 +425,12 @@ struct NowPlayingView: View {
                 }
                 if axis == .vertical {
                     let dy = v.translation.height
-                    let fast = v.predictedEndTranslation.height - dy > 180
-                    if dy > 130 || (fast && dy > 40) {
-                        ui.closeNowPlaying()
+                    let speed = v.velocity.height
+                    if dy > 140 || (speed > 700 && dy > 30) {
+                        ui.closeNowPlaying(velocity: speed)
+                        Haptics.soft()
                     } else {
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) { ui.npDrag = 0 }
+                        withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) { ui.motion.drag = 0 }
                     }
                 } else if dragOnArt, prefs.playback.swipeArt {
                     let dx = artX

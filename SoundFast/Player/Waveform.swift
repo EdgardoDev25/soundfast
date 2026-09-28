@@ -1,4 +1,5 @@
 import AVFoundation
+import SwiftUI
 import UIKit
 
 /// Onda real de cada canción (60 barras), calculada una vez y guardada en memoria.
@@ -75,6 +76,7 @@ final class WaveformStore: ObservableObject {
 @MainActor
 final class ArtworkStore: ObservableObject {
     private let cache = NSCache<NSString, UIImage>()
+    private var palettes: [String: [Color]] = [:]
 
     init() {
         cache.countLimit = 300
@@ -94,5 +96,16 @@ final class ArtworkStore: ObservableObject {
         }.value
         if let image { cache.setObject(image, forKey: song.id as NSString) }
         return image
+    }
+
+    /// Colores dominantes de la portada, para los efectos de fondo.
+    func palette(_ song: Song) async -> [Color] {
+        if let p = palettes[song.id] { return p }
+        guard let image = await load(song) else { return [] }
+        let colors = await Task.detached(priority: .utility) {
+            EffectPalette.dominant(from: image)
+        }.value
+        palettes[song.id] = colors
+        return colors
     }
 }

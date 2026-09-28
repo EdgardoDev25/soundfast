@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Tipografías del prototipo, incluidas en la app (Resources/Fonts).
 extension Font {
-    enum SoraWeight: String {
+    enum BrandWeight: String {
         case regular = "Regular", medium = "Medium", semibold = "SemiBold", bold = "Bold", heavy = "ExtraBold"
     }
 
@@ -10,8 +10,9 @@ extension Font {
         case regular = "Regular", medium = "Medium", bold = "Bold"
     }
 
-    static func sora(_ size: CGFloat, _ weight: SoraWeight = .regular) -> Font {
-        .custom("Sora-\(weight.rawValue)", fixedSize: size)
+    /// Montserrat: la fuente principal.
+    static func montserrat(_ size: CGFloat, _ weight: BrandWeight = .regular) -> Font {
+        .custom("Montserrat-\(weight.rawValue)", fixedSize: size)
     }
 
     static func mono(_ size: CGFloat, _ weight: MonoWeight = .regular) -> Font {

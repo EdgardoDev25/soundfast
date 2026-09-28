@@ -22,13 +22,13 @@ struct SoundView: View {
                 .buttonStyle(PressableStyle())
                 .accessibilityLabel("Cerrar")
                 Spacer()
-                Text("Sonido").font(.sora(17, .bold)).foregroundStyle(Ink.text)
+                Text("Sonido").font(.montserrat(17, .bold)).foregroundStyle(Ink.text)
                 Spacer()
                 Button("Restablecer") {
                     withAnimation(.easeOut(duration: 0.25)) { prefs.resetSound() }
                     Haptics.tap()
                 }
-                .font(.sora(13, .semibold))
+                .font(.montserrat(13, .semibold))
                 .foregroundStyle(accent)
                 .buttonStyle(.plain)
                 .frame(width: 80, alignment: .trailing)
@@ -49,7 +49,7 @@ struct SoundView: View {
             .scrollBounceBehavior(.basedOnSize)
             .scrollDisabled(editing)
         }
-        .background(prefs.theme.bg.ignoresSafeArea())
+        .background(ThemeBackground())
     }
 
     // MARK: Tono (graves / agudos)
@@ -59,7 +59,7 @@ struct SoundView: View {
             HStack(alignment: .firstTextBaseline) {
                 Text("TONO").eyebrow(color: accent)
                 Spacer()
-                Text("Independiente del ecualizador").font(.sora(12)).foregroundStyle(Ink.dim)
+                Text("Independiente del ecualizador").font(.montserrat(12)).foregroundStyle(Ink.dim)
             }
             HStack(spacing: 14) {
                 Knob(
@@ -70,7 +70,7 @@ struct SoundView: View {
                     VStack(spacing: 1) {
                         Text("GRAVES").eyebrow(10, color: Ink.dim)
                         Text("\(Int(prefs.sound.bass))%")
-                            .font(.sora(30, .heavy))
+                            .font(.montserrat(30, .heavy))
                             .tracking(-0.6)
                             .foregroundStyle(Ink.text)
                         Text(String(format: "+%.1f dB", prefs.sound.bassDb))
@@ -87,7 +87,7 @@ struct SoundView: View {
                         color: Color(hex: 0xE9E7E2), onEditing: { editing = $0 }
                     ) {
                         Text("\(Int(prefs.sound.treble))%")
-                            .font(.sora(17, .heavy))
+                            .font(.montserrat(17, .heavy))
                             .foregroundStyle(Ink.text)
                     }
                     .accessibilityLabel("Agudos")
@@ -96,13 +96,24 @@ struct SoundView: View {
                 .frame(maxWidth: .infinity)
             }
             VStack(alignment: .leading, spacing: 8) {
-                Text("Punto de graves").font(.sora(12)).foregroundStyle(Ink.dim)
+                Text("Punto de graves").font(.montserrat(12)).foregroundStyle(Ink.dim)
                 HStack(spacing: 8) {
                     ForEach(SoundSettings.bassFrequencies, id: \.self) { f in
                         Chip(label: "\(Int(f)) Hz", selected: prefs.sound.bassFreq == f, mono: true, fullWidth: true) {
-                            prefs.sound.bassFreq = f
+                            withAnimation(.easeOut(duration: 0.25)) { prefs.sound.bassFreq = f }
                         }
                     }
+                }
+                if let info = SoundSettings.bassFrequencyInfo[prefs.sound.bassFreq] {
+                    (Text(info.name + " · ").font(.montserrat(12, .bold)).foregroundColor(prefs.accent.color)
+                        + Text(info.detail).font(.montserrat(12)).foregroundColor(Ink.dim))
+                        .fixedSize(horizontal: false, vertical: true)
+                        .animation(nil, value: prefs.sound.bassFreq)
+                }
+                if prefs.sound.bass == 0 {
+                    Text("Sube la perilla de graves para escuchar la diferencia.")
+                        .font(.montserrat(12))
+                        .foregroundStyle(Ink.faint)
                 }
             }
         }
@@ -141,7 +152,7 @@ struct SoundView: View {
                             }
                         } label: {
                             Text(name)
-                                .font(.sora(13, .semibold))
+                                .font(.montserrat(13, .semibold))
                                 .foregroundStyle(on ? Ink.onAccent : Color(hex: 0xD6D5DA))
                                 .padding(.horizontal, 14)
                                 .frame(height: 32)

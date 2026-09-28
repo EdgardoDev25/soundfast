@@ -50,7 +50,14 @@ Límites del Apple ID gratis: 3 apps instaladas así a la vez y 10 App IDs por s
 4. 🟡 Sonido: ecualizador de 10 bandas, graves, agudos, fundido y reproducción sin pausas.
 5. 🟡 Ajustes y apariencia: acentos, temas, forma de portada y botón.
 
+6. 🟡 Versión 0.3: fuente Montserrat, tema Cristal (glassmorphism), efectos de fondo que reaccionan a la música, punto de graves rehecho, ordenar/actualizar desde la biblioteca, reordenar listas, gesto de cierre fluido.
+
 🟡 = escrito, falta probar en el iPhone.
+
+## Pendiente
+
+- Renovación automática de la firma (AltStore/SideStore) o TestFlight con cuenta de desarrollador.
+  Anotado en los pendientes de Edgar.
 
 ## Cómo meter canciones
 

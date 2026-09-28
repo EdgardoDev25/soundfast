@@ -69,12 +69,15 @@ struct AppTheme: Identifiable, Equatable {
     let id: String
     let name: String
     let bg: Color, surf: Color, surf2: Color, tab: Color
+    /// Glassmorphism: superficies de vidrio esmerilado sobre un fondo de color.
+    var glass = false
 
     static let all: [AppTheme] = [
         AppTheme(id: "oled", name: "OLED", bg: Color(hex: 0x000000), surf: Color(hex: 0x111113), surf2: Color(hex: 0x1A1A1D), tab: Color(hex: 0x000000, alpha: 0.94)),
         AppTheme(id: "grafito", name: "Grafito", bg: Color(hex: 0x0B0B0D), surf: Color(hex: 0x16161A), surf2: Color(hex: 0x1C1C21), tab: Color(hex: 0x0E0E10, alpha: 0.94)),
         AppTheme(id: "noche", name: "Noche", bg: .oklch(0.16, 0.03, 262), surf: .oklch(0.21, 0.035, 262), surf2: .oklch(0.25, 0.035, 262), tab: .oklch(0.17, 0.03, 262, 0.94)),
         AppTheme(id: "calido", name: "Cálido", bg: .oklch(0.16, 0.012, 60), surf: .oklch(0.21, 0.016, 60), surf2: .oklch(0.25, 0.018, 60), tab: .oklch(0.17, 0.012, 60, 0.94)),
+        AppTheme(id: "cristal", name: "Cristal", bg: .oklch(0.12, 0.02, 275), surf: Color.white.opacity(0.07), surf2: Color.white.opacity(0.11), tab: Color.white.opacity(0.06), glass: true),
     ]
 
     static func named(_ id: String) -> AppTheme { all.first { $0.id == id } ?? all[1] }

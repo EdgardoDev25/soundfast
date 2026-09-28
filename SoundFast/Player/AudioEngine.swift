@@ -25,11 +25,14 @@ final class AudioEngine {
     private(set) var isPlaying = false
     private(set) var currentSongId: String?
 
+    /// Volumen y frecuencias de lo que suena, para los efectos visuales.
+    let analyzer = AudioAnalyzer()
+
     // MARK: Grafo
 
     private let engine = AVAudioEngine()
     private let mix = AVAudioMixerNode()
-    private let eq = AVAudioUnitEQ(numberOfBands: 12)
+    private let eq = AVAudioUnitEQ(numberOfBands: 13)
     private let limiter: AVAudioUnitEffect
     private let decks = [Deck(bus: 0), Deck(bus: 1)]
     private var activeIndex = 0
@@ -104,14 +107,26 @@ final class AudioEngine {
             band.gain = 0
             band.bypass = false
         }
-        eq.bands[10].filterType = .lowShelf
+        // Graves: campana centrada en el punto elegido + estante suave por debajo.
+        eq.bands[10].filterType = .parametric
+        eq.bands[10].bandwidth = Float(SoundSettings.bassBellWidth)
+        eq.bands[12].filterType = .lowShelf
         eq.bands[11].filterType = .highShelf
         eq.bands[11].frequency = 5000
+
+        Self.installTap(on: engine.mainMixerNode, analyzer: analyzer)
 
         NotificationCenter.default.addObserver(
             forName: .AVAudioEngineConfigurationChange, object: engine, queue: .main
         ) { [weak self] _ in
             MainActor.assumeIsolated { self?.handleConfigurationChange() }
+        }
+    }
+
+    /// Fuera del actor principal: el bloque corre en el hilo de audio.
+    private nonisolated static func installTap(on node: AVAudioNode, analyzer: AudioAnalyzer) {
+        node.installTap(onBus: 0, bufferSize: 1024, format: nil) { buffer, _ in
+            analyzer.process(buffer)
         }
     }
 
@@ -122,17 +137,23 @@ final class AudioEngine {
             eq.bands[i].gain = Float(s.bands[i])
             eq.bands[i].bypass = !s.eqOn
         }
-        let bass = eq.bands[10]
-        bass.frequency = Float(s.bassFreq)
-        bass.gain = Float(s.bassDb)
-        bass.bypass = s.bass <= 0
+        let bell = eq.bands[10]
+        bell.frequency = Float(s.bassFreq)
+        bell.gain = Float(s.bassDb * SoundSettings.bassBellShare)
+        bell.bypass = s.bass <= 0
+
+        let shelf = eq.bands[12]
+        shelf.frequency = Float(s.bassFreq * SoundSettings.bassShelfRatio)
+        shelf.gain = Float(s.bassDb * SoundSettings.bassShelfShare)
+        shelf.bypass = s.bass <= 0
 
         let treble = eq.bands[11]
         treble.gain = Float(s.trebleDb)
         treble.bypass = s.treble <= 0
 
-        // Margen para que el refuerzo no sature; el limitador atrapa el resto.
-        eq.globalGain = -Float(max(0, s.peakGain) * 0.6)
+        // Un poco de margen para no saturar; el limitador atrapa los picos.
+        // (Antes se bajaba demasiado y el refuerzo de graves casi no se notaba.)
+        eq.globalGain = -Float(max(0, s.peakGain) * 0.3)
     }
 
     // MARK: Control

@@ -21,31 +21,14 @@ struct RootView: View {
 
     var body: some View {
         GeometryReader { geo in
-            let t = min(1, ui.npDrag / 600)
             ZStack(alignment: .bottom) {
-                Color.black.ignoresSafeArea()
-
-                LibraryView()
-                    .background(prefs.theme.bg.ignoresSafeArea())
-                    .scaleEffect(ui.npOpen ? 0.93 + 0.07 * t : 1)
-
-                Color.black
-                    .opacity(ui.npOpen ? 0.55 * Double(1 - t) : 0)
-                    .ignoresSafeArea()
-                    .allowsHitTesting(false)
-
-                if player.current != nil {
-                    MiniPlayer(clock: player.clock)
-                        .padding(.horizontal, 10)
-                        .padding(.bottom, 64)
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
-                        .accessibilityHidden(ui.npOpen)
-                }
-
-                NowPlayingView(clock: player.clock)
-                    .offset(y: ui.npOpen ? ui.npDrag : geo.size.height + geo.safeAreaInsets.top + geo.safeAreaInsets.bottom + 40)
-                    .allowsHitTesting(ui.npOpen)
-                    .accessibilityHidden(!ui.npOpen)
+                PlayerStage(
+                    motion: ui.motion,
+                    npOpen: ui.npOpen,
+                    hasCurrent: player.current != nil,
+                    clock: player.clock,
+                    hiddenOffset: geo.size.height + geo.safeAreaInsets.top + geo.safeAreaInsets.bottom + 40
+                )
 
                 if !library.onboarded && library.songs.isEmpty {
                     OnboardingView()
@@ -72,6 +55,7 @@ struct RootView: View {
             Group {
                 switch sheet {
                 case .queue: QueueSheet()
+                case .effects: EffectsSheet()
                 case .addTo(let id): AddToPlaylistSheet(songId: id)
                 case .picker(let id): SongPickerSheet(playlistId: id)
                 }
@@ -176,6 +160,46 @@ struct RootView: View {
             if let song = library.song(id) { library.deleteFile(song) }
         }
         Haptics.tap()
+    }
+}
+
+/// Biblioteca + minirreproductor + "Sonando ahora". Es la única vista que escucha el
+/// arrastre, así la biblioteca (una lista larga) no se redibuja en cada cuadro.
+private struct PlayerStage: View {
+    @ObservedObject var motion: SheetMotion
+    let npOpen: Bool
+    let hasCurrent: Bool
+    let clock: PlaybackClock
+    let hiddenOffset: CGFloat
+
+    var body: some View {
+        let t = min(1, motion.drag / 600)
+        ZStack(alignment: .bottom) {
+            Color.black.ignoresSafeArea()
+
+            LibraryView()
+                .background(ThemeBackground())
+                .scaleEffect(npOpen ? 0.93 + 0.07 * t : 1)
+                .allowsHitTesting(!npOpen)
+
+            Color.black
+                .opacity(npOpen ? 0.55 * Double(1 - t) : 0)
+                .ignoresSafeArea()
+                .allowsHitTesting(false)
+
+            if hasCurrent {
+                MiniPlayer(clock: clock)
+                    .padding(.horizontal, 10)
+                    .padding(.bottom, 64)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .accessibilityHidden(npOpen)
+            }
+
+            NowPlayingView(clock: clock)
+                .offset(y: npOpen ? motion.drag : hiddenOffset)
+                .allowsHitTesting(npOpen)
+                .accessibilityHidden(!npOpen)
+        }
     }
 }
 

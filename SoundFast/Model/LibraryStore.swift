@@ -15,8 +15,14 @@ final class LibraryStore: ObservableObject {
     /// Mensaje corto para mostrar tras importar o actualizar.
     @Published var notice: String?
 
-    var sortBy = "titulo" {
-        didSet { if oldValue != sortBy { songs = sort(songs) } }
+    private var sortBy = "titulo"
+    private var sortAscending = true
+
+    func setSort(by key: String, ascending: Bool) {
+        guard key != sortBy || ascending != sortAscending else { return }
+        sortBy = key
+        sortAscending = ascending
+        songs = sort(songs)
     }
 
     private var byId: [String: Song] = [:]
@@ -131,8 +137,10 @@ final class LibraryStore: ObservableObject {
     }
 
     /// Busca canciones nuevas en Documentos y en la biblioteca de Música.
-    func refresh() async {
+    /// Con `announce` muestra un aviso con el resultado.
+    func refresh(announce: Bool = false) async {
         guard !isScanning else { return }
+        let before = Set(byId.keys)
         isScanning = true
         musicAccess = MPMediaLibrary.authorizationStatus()
         let existing = byId
@@ -145,6 +153,14 @@ final class LibraryStore: ObservableObject {
         isScanning = false
         lastScan = Date()
         scheduleSave()
+        if announce {
+            let added = found.filter { !before.contains($0.id) }.count
+            let removed = before.subtracting(found.map(\.id)).count
+            var parts: [String] = []
+            if added > 0 { parts.append(Format.count(added, "canción nueva", "canciones nuevas")) }
+            if removed > 0 { parts.append(Format.count(removed, "quitada", "quitadas")) }
+            notice = parts.isEmpty ? "Biblioteca al día · no hay canciones nuevas" : "Biblioteca actualizada · " + parts.joined(separator: " · ")
+        }
     }
 
     /// Borra del iPhone una canción importada (solo archivos, no la biblioteca de Música).
@@ -180,17 +196,27 @@ final class LibraryStore: ObservableObject {
         func less(_ a: String, _ b: String) -> Bool {
             a.compare(b, options: [.caseInsensitive, .numeric], range: nil, locale: es) == .orderedAscending
         }
+        // Siempre desempata por título, para que el orden sea estable.
+        let ascending: (Song, Song) -> Bool
         switch sortBy {
         case "artista":
-            return list.sorted {
+            ascending = {
                 $0.artist.caseInsensitiveCompare($1.artist) == .orderedSame
                     ? less($0.title, $1.title) : less($0.artist, $1.artist)
             }
-        case "recientes":
-            return list.sorted { $0.addedAt > $1.addedAt }
+        case "album":
+            ascending = {
+                $0.album.caseInsensitiveCompare($1.album) == .orderedSame
+                    ? less($0.title, $1.title) : less($0.album, $1.album)
+            }
+        case "fecha":
+            ascending = { $0.addedAt == $1.addedAt ? less($0.title, $1.title) : $0.addedAt < $1.addedAt }
+        case "duracion":
+            ascending = { $0.duration == $1.duration ? less($0.title, $1.title) : $0.duration < $1.duration }
         default:
-            return list.sorted { less($0.title, $1.title) }
+            ascending = { less($0.title, $1.title) }
         }
+        return sortAscending ? list.sorted(by: ascending) : list.sorted { ascending($1, $0) }
     }
 
     private func scheduleSave() {

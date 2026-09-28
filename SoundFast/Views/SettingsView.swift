@@ -23,7 +23,7 @@ struct SettingsView: View {
                 .buttonStyle(PressableStyle())
                 .accessibilityLabel("Cerrar")
                 Spacer()
-                Text("Ajustes").font(.sora(17, .bold)).foregroundStyle(Ink.text)
+                Text("Ajustes").font(.montserrat(17, .bold)).foregroundStyle(Ink.text)
                 Spacer()
                 Color.clear.frame(width: 40, height: 40)
             }
@@ -41,7 +41,7 @@ struct SettingsView: View {
                     librarySection
                     aboutSection
                     Text("SoundFast · Hecho para iPhone")
-                        .font(.sora(12))
+                        .font(.montserrat(12))
                         .foregroundStyle(Ink.faint)
                         .frame(maxWidth: .infinity)
                         .padding(.top, 4)
@@ -52,7 +52,7 @@ struct SettingsView: View {
             }
             .scrollIndicators(.hidden)
         }
-        .background(prefs.theme.bg.ignoresSafeArea())
+        .background(ThemeBackground())
     }
 
     // MARK: Encabezado
@@ -60,19 +60,19 @@ struct SettingsView: View {
     private var profile: some View {
         HStack(spacing: 14) {
             Text("S")
-                .font(.sora(30, .heavy))
+                .font(.montserrat(30, .heavy))
                 .tracking(-1.2)
                 .foregroundStyle(Ink.onAccent)
                 .frame(width: 58, height: 58)
                 .background(accent, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
             VStack(alignment: .leading, spacing: 2) {
-                Text("SoundFast").font(.sora(19, .heavy)).foregroundStyle(Ink.text)
+                Text("SoundFast").font(.montserrat(19, .heavy)).foregroundStyle(Ink.text)
                 Text(
                     Format.count(library.songs.count, "canción", "canciones") + " · "
                         + Format.count(library.playlists.count, "lista", "listas") + " · "
                         + Format.count(library.favorites.count, "favorito", "favoritos")
                 )
-                .font(.sora(12))
+                .font(.montserrat(12))
                 .foregroundStyle(Ink.dim)
             }
         }
@@ -87,9 +87,9 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 18) {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(alignment: .firstTextBaseline) {
-                        Text("Color de acento").font(.sora(15, .medium)).foregroundStyle(Ink.text)
+                        Text("Color de acento").font(.montserrat(15, .medium)).foregroundStyle(Ink.text)
                         Spacer()
-                        Text(prefs.accent.name).font(.sora(13)).foregroundStyle(Ink.dim)
+                        Text(prefs.accent.name).font(.montserrat(13)).foregroundStyle(Ink.dim)
                     }
                     HStack {
                         ForEach(Accent.all) { a in
@@ -111,7 +111,7 @@ struct SettingsView: View {
                 }
 
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("Tema").font(.sora(15, .medium)).foregroundStyle(Ink.text)
+                    Text("Tema").font(.montserrat(15, .medium)).foregroundStyle(Ink.text)
                     HStack(spacing: 8) {
                         ForEach(AppTheme.all) { t in
                             Button {
@@ -121,12 +121,19 @@ struct SettingsView: View {
                                 VStack(alignment: .leading) {
                                     RoundedRectangle(cornerRadius: 4).fill(t.surf2).frame(height: 14)
                                     Spacer(minLength: 0)
-                                    Text(t.name).font(.sora(11, .semibold)).foregroundStyle(Color(hex: 0xE6E5E9))
+                                    Text(t.name).font(.montserrat(11, .semibold)).foregroundStyle(Color(hex: 0xE6E5E9))
                                 }
                                 .padding(8)
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 70)
-                                .background(t.bg, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                                .background(
+                                    t.glass
+                                        ? AnyShapeStyle(LinearGradient(
+                                            colors: [.oklch(0.5, 0.16, prefs.accent.h), .oklch(0.4, 0.15, prefs.accent.h + 70)],
+                                            startPoint: .topLeading, endPoint: .bottomTrailing))
+                                        : AnyShapeStyle(t.bg),
+                                    in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                )
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 12, style: .continuous)
                                         .stroke(t.id == prefs.theme.id ? accent : Ink.chipBorder, lineWidth: 2)
@@ -149,7 +156,7 @@ struct SettingsView: View {
                     Haptics.tap()
                 } label: {
                     Text("Restablecer apariencia")
-                        .font(.sora(13, .semibold))
+                        .font(.montserrat(13, .semibold))
                         .foregroundStyle(accent)
                         .frame(maxWidth: .infinity)
                 }
@@ -162,7 +169,7 @@ struct SettingsView: View {
     private func optionRow(_ title: String, options: [(String, String)], selected: String,
                            set: @escaping (String) -> Void) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(title).font(.sora(15, .medium)).foregroundStyle(Ink.text)
+            Text(title).font(.montserrat(15, .medium)).foregroundStyle(Ink.text)
             HStack(spacing: 8) {
                 ForEach(options, id: \.0) { option in
                     Chip(label: option.1, selected: selected == option.0, fullWidth: true) { set(option.0) }
@@ -178,7 +185,7 @@ struct SettingsView: View {
             group {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack {
-                        Text("Fundido entre canciones").font(.sora(15)).foregroundStyle(Ink.text)
+                        Text("Fundido entre canciones").font(.montserrat(15)).foregroundStyle(Ink.text)
                         Spacer()
                         Text(prefs.playback.crossfade > 0 ? "\(prefs.playback.crossfade) s" : "Apagado")
                             .font(.mono(13))
@@ -188,7 +195,7 @@ struct SettingsView: View {
                     Text(prefs.playback.crossfade > 0
                          ? "Una canción se desvanece mientras entra la siguiente."
                          : "Sin fundido, las canciones se encadenan sin silencios.")
-                        .font(.sora(12))
+                        .font(.montserrat(12))
                         .foregroundStyle(Ink.dim)
                 }
                 .padding(.horizontal, 16)
@@ -217,7 +224,7 @@ struct SettingsView: View {
                 }
                 divider
                 HStack {
-                    Text("Salida de audio").font(.sora(15)).foregroundStyle(Ink.text)
+                    Text("Salida de audio").font(.montserrat(15)).foregroundStyle(Ink.text)
                     Spacer()
                     RoutePicker(tint: Ink.dim, activeTint: accent)
                         .frame(width: 36, height: 36)
@@ -240,7 +247,7 @@ struct SettingsView: View {
                 }
                 divider
                 HStack {
-                    Text("Barra de progreso").font(.sora(15)).foregroundStyle(Ink.text)
+                    Text("Barra de progreso").font(.montserrat(15)).foregroundStyle(Ink.text)
                     Spacer()
                     HStack(spacing: 0) {
                         segment("Onda", on: prefs.playback.seekStyle == "onda") { prefs.playback.seekStyle = "onda" }
@@ -259,17 +266,21 @@ struct SettingsView: View {
         section("BIBLIOTECA") {
             group {
                 HStack {
-                    Text("Ordenar canciones por").font(.sora(15)).foregroundStyle(Ink.text)
+                    Text("Ordenar canciones por").font(.montserrat(15)).foregroundStyle(Ink.text)
                     Spacer()
                     Menu {
                         Picker("Ordenar", selection: $prefs.playback.sortBy) {
-                            Text("Título").tag("titulo")
-                            Text("Artista").tag("artista")
-                            Text("Recientes").tag("recientes")
+                            ForEach(PlaybackSettings.sortOptions, id: \.id) { option in
+                                Text(option.name).tag(option.id)
+                            }
+                        }
+                        Picker("Dirección", selection: $prefs.playback.sortAscending) {
+                            Text("Ascendente").tag(true)
+                            Text("Descendente").tag(false)
                         }
                     } label: {
                         HStack(spacing: 4) {
-                            Text(sortLabel).font(.sora(14)).foregroundStyle(Ink.dim)
+                            Text(sortLabel).font(.montserrat(14)).foregroundStyle(Ink.dim)
                             Image(systemName: "chevron.up.chevron.down").font(.system(size: 11, weight: .semibold)).foregroundStyle(Ink.dim)
                         }
                     }
@@ -277,7 +288,7 @@ struct SettingsView: View {
                 .padding(.horizontal, 16)
                 .frame(minHeight: 52)
                 divider
-                toggleRow("Índice A–Z", "Solo al ordenar por título", isOn: prefs.playback.showAz) {
+                toggleRow("Índice A–Z", "Solo al ordenar por título (A → Z)", isOn: prefs.playback.showAz) {
                     prefs.playback.showAz.toggle()
                 }
                 divider
@@ -314,11 +325,9 @@ struct SettingsView: View {
     }
 
     private var sortLabel: String {
-        switch prefs.playback.sortBy {
-        case "artista": return "Artista"
-        case "recientes": return "Recientes"
-        default: return "Título"
-        }
+        let name = PlaybackSettings.sortOptions.first { $0.id == prefs.playback.sortBy }?.name ?? "Título"
+        let short = name == "Fecha de incorporación" ? "Fecha" : name
+        return short + (prefs.playback.sortAscending ? " ↑" : " ↓")
     }
 
     private var refreshSubtitle: String {
@@ -354,8 +363,7 @@ struct SettingsView: View {
 
     private func group<Content: View>(@ViewBuilder content: () -> Content) -> some View {
         VStack(spacing: 0) { content() }
-            .background(prefs.theme.surf, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(Ink.cardBorder, lineWidth: 1))
+            .surface(prefs, RoundedRectangle(cornerRadius: 18, style: .continuous), border: Ink.cardBorder)
     }
 
     private var divider: some View {
@@ -369,8 +377,8 @@ struct SettingsView: View {
         } label: {
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(label).font(.sora(15)).foregroundStyle(Ink.text)
-                    if let sub { Text(sub).font(.sora(12)).foregroundStyle(Ink.dim) }
+                    Text(label).font(.montserrat(15)).foregroundStyle(Ink.text)
+                    if let sub { Text(sub).font(.montserrat(12)).foregroundStyle(Ink.dim) }
                 }
                 Spacer(minLength: 0)
                 SwitchView(isOn: isOn, accent: accent)
@@ -387,9 +395,9 @@ struct SettingsView: View {
     private func navRow(_ label: String, value: String?, chevron: Bool = true, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 8) {
-                Text(label).font(.sora(15)).foregroundStyle(Ink.text)
+                Text(label).font(.montserrat(15)).foregroundStyle(Ink.text)
                 Spacer(minLength: 0)
-                if let value { Text(value).font(.sora(14)).foregroundStyle(Ink.dim).lineLimit(1) }
+                if let value { Text(value).font(.montserrat(14)).foregroundStyle(Ink.dim).lineLimit(1) }
                 if chevron {
                     Image(systemName: "chevron.right").font(.system(size: 12, weight: .bold)).foregroundStyle(Color(hex: 0x5A5A62))
                 }
@@ -405,8 +413,8 @@ struct SettingsView: View {
     private func actionRow(_ label: String, _ sub: String?, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             VStack(alignment: .leading, spacing: 3) {
-                Text(label).font(.sora(15, .semibold)).foregroundStyle(accent)
-                if let sub { Text(sub).font(.sora(12)).foregroundStyle(Ink.dim) }
+                Text(label).font(.montserrat(15, .semibold)).foregroundStyle(accent)
+                if let sub { Text(sub).font(.montserrat(12)).foregroundStyle(Ink.dim) }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 16)
@@ -423,7 +431,7 @@ struct SettingsView: View {
             Haptics.soft()
         } label: {
             Text(label)
-                .font(.sora(12, .semibold))
+                .font(.montserrat(12, .semibold))
                 .foregroundStyle(on ? Ink.onAccent : Ink.chipText)
                 .padding(.horizontal, 12)
                 .frame(height: 28)

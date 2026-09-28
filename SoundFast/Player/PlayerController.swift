@@ -35,6 +35,8 @@ final class PlayerController: ObservableObject {
 
     var position: Double { clock.position }
 
+    var analyzer: AudioAnalyzer { engine.analyzer }
+
     init(library: LibraryStore, prefs: Preferences) {
         self.library = library
         self.prefs = prefs
@@ -291,7 +293,7 @@ final class PlayerController: ObservableObject {
     private func applyPlayback(_ p: PlaybackSettings) {
         engine.crossfade = Double(p.crossfade)
         engine.gapless = p.gapless
-        library.sortBy = p.sortBy
+        library.setSort(by: p.sortBy, ascending: p.sortAscending)
     }
 
     private func startTicker() {
