@@ -156,3 +156,26 @@ extension View {
         }
     }
 }
+
+extension View {
+    /// Vidrio siempre, sin importar el tema (botones sobre fondos de color,
+    /// barras superior e inferior). En iOS 26 es Liquid Glass.
+    @MainActor
+    func glassSurface<S: Shape>(_ prefs: Preferences, _ shape: S, interactive: Bool = false) -> some View {
+        modifier(Surface(theme: AppTheme.named("cristal"), blur: prefs.look.glassBlur, shape: shape,
+                         raised: true, interactive: interactive))
+    }
+
+    /// Fondo de vidrio de la barra superior (título, botones y buscador); la lista pasa por debajo.
+    @MainActor
+    func topBarBackground(_ prefs: Preferences) -> some View {
+        self.background {
+            Rectangle()
+                .fill(prefs.look.glassBlur < 0.4 ? Material.ultraThin : Material.regular)
+                .overlay(alignment: .bottom) {
+                    Rectangle().fill(Color.white.opacity(0.1)).frame(height: 1)
+                }
+                .ignoresSafeArea(edges: .top)
+        }
+    }
+}

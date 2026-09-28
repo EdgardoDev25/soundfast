@@ -94,6 +94,11 @@ struct SoundView: View {
                     Text("Sube la perilla de graves para escuchar la diferencia.")
                         .font(.montserrat(12))
                         .foregroundStyle(Ink.faint)
+                } else if prefs.sound.bass > 70 {
+                    Label("Graves extremos: el resto de la música puede sonar más bajo o distorsionar. Cuida el volumen.",
+                          systemImage: "exclamationmark.triangle.fill")
+                        .font(.montserrat(12))
+                        .foregroundStyle(Color.oklch(0.8, 0.14, 75))
                 }
             }
         }

@@ -44,7 +44,7 @@ final class AudioEngine {
 
     private let engine = AVAudioEngine()
     private let mix = AVAudioMixerNode()
-    private let eq = AVAudioUnitEQ(numberOfBands: 13)
+    private let eq = AVAudioUnitEQ(numberOfBands: 14)
     private let limiter: AVAudioUnitEffect
     private let decks = [Deck(bus: 0), Deck(bus: 1)]
     private var activeIndex = 0
@@ -147,6 +147,8 @@ final class AudioEngine {
         eq.bands[10].filterType = .parametric
         eq.bands[10].bandwidth = Float(SoundSettings.bassBellWidth)
         eq.bands[12].filterType = .lowShelf
+        eq.bands[13].filterType = .parametric
+        eq.bands[13].bandwidth = Float(SoundSettings.bassBell2Width)
         eq.bands[11].filterType = .highShelf
         eq.bands[11].frequency = 5000
 
@@ -177,6 +179,11 @@ final class AudioEngine {
         bell.frequency = Float(s.bassFreq)
         bell.gain = Float(min(24, s.bassDb * SoundSettings.bassBellShare))
         bell.bypass = s.bass <= 0
+
+        let bell2 = eq.bands[13]
+        bell2.frequency = Float(s.bassFreq * SoundSettings.bassBell2Ratio)
+        bell2.gain = Float(min(24, s.bassDb * SoundSettings.bassBell2Share))
+        bell2.bypass = s.bass <= 0
 
         let shelf = eq.bands[12]
         shelf.frequency = Float(s.bassFreq * SoundSettings.bassShelfRatio)

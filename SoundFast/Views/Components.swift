@@ -19,6 +19,7 @@ final class AppUI: ObservableObject {
         case effects
         case addTo(songId: String)
         case cover(songId: String)
+        case editTags(songId: String)
         case picker(playlistId: String)
 
         var id: String {
@@ -26,6 +27,7 @@ final class AppUI: ObservableObject {
             case .queue: return "queue"
             case .effects: return "effects"
             case .cover(let s): return "cover-\(s)"
+            case .editTags(let s): return "tags-\(s)"
             case .addTo(let s): return "addTo-\(s)"
             case .picker(let p): return "picker-\(p)"
             }

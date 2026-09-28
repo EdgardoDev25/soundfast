@@ -53,12 +53,7 @@ struct LibraryView: View {
 
     var body: some View {
         let songs = visibleSongs
-        VStack(spacing: 0) {
-            header
-            if ui.tab != .lists {
-                searchField
-            }
-            ZStack(alignment: .trailing) {
+        ZStack(alignment: .trailing) {
                 content(songs)
                 if showAZ {
                     AZIndex(songs: library.songs)
@@ -78,7 +73,17 @@ struct LibraryView: View {
                         .allowsHitTesting(false)
                         .frame(maxHeight: .infinity, alignment: .center)
                 }
+        }
+        // Título, botones y buscador sobre vidrio; la lista se desliza por debajo.
+        .safeAreaInset(edge: .top, spacing: 0) {
+            VStack(spacing: 0) {
+                header
+                if ui.tab != .lists {
+                    searchField
+                }
             }
+            .padding(.bottom, 12)
+            .topBarBackground(prefs)
         }
         .safeAreaInset(edge: .bottom, spacing: 0) { TabBar() }
         .onChange(of: ui.openList) { _, _ in reordering = false }
@@ -499,6 +504,9 @@ struct SongRow: View {
             Button { ui.sheet = .addTo(songId: song.id) } label: {
                 Label("Añadir a una lista…", systemImage: "text.badge.plus")
             }
+            Button { ui.sheet = .editTags(songId: song.id) } label: {
+                Label("Editar información…", systemImage: "pencil")
+            }
             Button { ui.sheet = .cover(songId: song.id) } label: {
                 Label(song.hasArtwork ? "Cambiar portada…" : "Buscar portada…", systemImage: "photo")
             }
@@ -650,40 +658,44 @@ struct EmptyLibrary: View {
 struct TabBar: View {
     @EnvironmentObject private var prefs: Preferences
     @EnvironmentObject private var ui: AppUI
+    @Namespace private var pill
 
     var body: some View {
-        HStack(spacing: 0) {
+        HStack(spacing: 4) {
             tab(.songs, "Canciones", "music.note")
             tab(.favs, "Favoritos", "heart")
             tab(.lists, "Listas", "music.note.list")
         }
-        .padding(.horizontal, 12)
-        .padding(.top, 6)
+        .padding(5)
+        .glassSurface(prefs, Capsule())
+        .shadow(color: .black.opacity(0.35), radius: 16, y: 8)
+        .padding(.horizontal, 20)
         .padding(.bottom, 2)
-        .barBackground(prefs)
-        .overlay(alignment: .top) {
-            Rectangle()
-                .fill(prefs.theme.glass ? Color.white.opacity(0.14) : Color(hex: 0x1F1F24))
-                .frame(height: 1)
-        }
     }
 
     private func tab(_ t: AppUI.Tab, _ label: String, _ icon: String) -> some View {
         let on = ui.tab == t
         return Button {
             if t != .lists { ui.openList = nil }
-            ui.tab = t
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) { ui.tab = t }
             Haptics.soft()
         } label: {
-            VStack(spacing: 4) {
+            VStack(spacing: 3) {
                 Image(systemName: on && t == .favs ? "heart.fill" : icon)
-                    .font(.system(size: 20, weight: .semibold))
+                    .font(.system(size: 18, weight: .semibold))
                 Text(label)
                     .font(.montserrat(10.5, .semibold))
             }
             .foregroundStyle(on ? prefs.accent.color : Ink.tabOff)
             .frame(maxWidth: .infinity)
             .frame(height: 48)
+            .background {
+                if on {
+                    Capsule()
+                        .fill(prefs.accent.alpha(0.16))
+                        .matchedGeometryEffect(id: "pill", in: pill)
+                }
+            }
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

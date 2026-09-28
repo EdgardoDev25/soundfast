@@ -163,6 +163,21 @@ final class LibraryStore: ObservableObject {
         }
     }
 
+    /// Guarda la información editada de una canción (solo en SoundFast; el archivo no se toca).
+    func updateTags(_ id: String, _ tags: SongTags) {
+        guard var s = byId[id] else { return }
+        let clean = { (v: String) in v.trimmingCharacters(in: .whitespacesAndNewlines) }
+        s.title = clean(tags.title).isEmpty ? s.title : clean(tags.title)
+        s.artist = clean(tags.artist).isEmpty ? "Artista desconocido" : clean(tags.artist)
+        s.album = clean(tags.album)
+        s.genre = clean(tags.genre)
+        s.year = Int(clean(tags.year))
+        s.track = Int(clean(tags.track))
+        byId[id] = s
+        setSongs(songs.map { $0.id == id ? s : $0 })
+        scheduleSave()
+    }
+
     /// Ya hay portada guardada para esta canción (descargada de internet).
     func markArtwork(_ id: String) {
         guard var s = byId[id] else { return }
@@ -290,7 +305,10 @@ enum LibraryScanner {
                     duration: item.playbackDuration,
                     source: .library(item.persistentID),
                     addedAt: item.dateAdded,
-                    hasArtwork: hasArt
+                    hasArtwork: hasArt,
+                    genre: item.genre ?? "",
+                    year: item.releaseDate.map { Calendar.current.component(.year, from: $0) },
+                    track: item.albumTrackNumber > 0 ? item.albumTrackNumber : nil
                 ))
             }
         }

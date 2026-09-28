@@ -57,6 +57,7 @@ struct RootView: View {
                 case .addTo(let id): AddToPlaylistSheet(songId: id)
                 case .picker(let id): SongPickerSheet(playlistId: id)
                 case .cover(let id): CoverPickerSheet(songId: id)
+                case .editTags(let id): EditTagsSheet(songId: id)
                 }
             }
             .withStores(library, prefs, player, ui, waveforms, artwork, covers)
@@ -204,7 +205,7 @@ private struct PlayerStage: View {
                 MiniPlayer(clock: clock)
                     .padding(.horizontal, 10)
                     // Sin barra de pestañas debajo (paneles abiertos) baja hasta el borde.
-                    .padding(.bottom, soundOpen || settingsOpen ? 6 : 64)
+                    .padding(.bottom, soundOpen || settingsOpen ? 6 : 70)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                     .accessibilityHidden(npOpen)
                     .zIndex(3)

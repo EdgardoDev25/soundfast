@@ -16,6 +16,9 @@ struct Song: Identifiable, Codable, Hashable {
     var source: Source
     var addedAt: Date
     var hasArtwork: Bool
+    var genre = ""
+    var year: Int?
+    var track: Int?
 
     /// Tono estable para la portada generada.
     var hue: Double {
@@ -49,6 +52,48 @@ struct Song: Identifiable, Codable, Hashable {
             return String(Character(scalar))
         }
         return "#"
+    }
+}
+
+extension Song {
+    /// Tolerante: las bibliotecas guardadas por versiones anteriores no tienen
+    /// género, año ni pista; se leen igual (sin perder listas ni favoritos).
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        title = try c.decode(String.self, forKey: .title)
+        artist = try c.decode(String.self, forKey: .artist)
+        album = try c.decodeIfPresent(String.self, forKey: .album) ?? ""
+        duration = try c.decodeIfPresent(Double.self, forKey: .duration) ?? 0
+        source = try c.decode(Source.self, forKey: .source)
+        addedAt = try c.decodeIfPresent(Date.self, forKey: .addedAt) ?? Date()
+        hasArtwork = try c.decodeIfPresent(Bool.self, forKey: .hasArtwork) ?? false
+        genre = try c.decodeIfPresent(String.self, forKey: .genre) ?? ""
+        year = try c.decodeIfPresent(Int.self, forKey: .year)
+        track = try c.decodeIfPresent(Int.self, forKey: .track)
+    }
+}
+
+/// Datos editables de una canción.
+struct SongTags: Equatable {
+    var title: String
+    var artist: String
+    var album: String
+    var genre: String
+    var year: String
+    var track: String
+
+    init() {
+        title = ""; artist = ""; album = ""; genre = ""; year = ""; track = ""
+    }
+
+    init(_ s: Song) {
+        title = s.title
+        artist = s.artist
+        album = s.album
+        genre = s.genre
+        year = s.year.map(String.init) ?? ""
+        track = s.track.map(String.init) ?? ""
     }
 }
 

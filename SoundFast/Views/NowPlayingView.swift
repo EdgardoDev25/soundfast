@@ -132,7 +132,7 @@ struct NowPlayingView: View {
                     .font(.system(size: 17, weight: .bold))
                     .foregroundStyle(Ink.text)
                     .frame(width: 40, height: 40)
-                    .background(Color.white.opacity(0.08), in: Circle())
+                    .glassSurface(prefs, Circle(), interactive: true)
             }
             .buttonStyle(PressableStyle())
             .accessibilityLabel("Cerrar")
@@ -150,7 +150,7 @@ struct NowPlayingView: View {
 
             RoutePicker(tint: Color.white.opacity(0.8), activeTint: accent)
                 .frame(width: 40, height: 40)
-                .background(Color.white.opacity(0.08), in: Circle())
+                .glassSurface(prefs, Circle(), interactive: true)
                 .accessibilityLabel("Salida de audio")
         }
     }
@@ -223,6 +223,17 @@ struct NowPlayingView: View {
             .id(song?.id)
             .transition(.opacity.combined(with: .offset(y: 6)))
             }
+            .contentShape(Rectangle())
+            .contextMenu {
+                if let song {
+                    Button { ui.sheet = .editTags(songId: song.id) } label: {
+                        Label("Editar información…", systemImage: "pencil")
+                    }
+                    Button { ui.sheet = .cover(songId: song.id) } label: {
+                        Label("Buscar portada…", systemImage: "photo")
+                    }
+                }
+            }
             .animation(.easeInOut(duration: 0.35), value: song?.id)
             Spacer(minLength: 0)
             Button {
@@ -235,7 +246,7 @@ struct NowPlayingView: View {
                     .font(.system(size: 20, weight: .semibold))
                     .foregroundStyle(isFav ? accent : Color.white.opacity(0.75))
                     .frame(width: 44, height: 44)
-                    .background(Color.white.opacity(0.08), in: Circle())
+                    .glassSurface(prefs, Circle(), interactive: true)
                     .contentTransition(.symbolEffect(.replace))
             }
             .buttonStyle(PressableStyle(scale: 0.88))
@@ -316,9 +327,10 @@ struct NowPlayingView: View {
             Spacer()
             Button { player.previous() } label: {
                 Image(systemName: "backward.end.fill")
-                    .font(.system(size: 30))
+                    .font(.system(size: 24))
                     .foregroundStyle(Color.white)
                     .frame(width: 60, height: 60)
+                    .glassSurface(prefs, Circle(), interactive: true)
             }
             .buttonStyle(PressableStyle(scale: 0.88))
             .accessibilityLabel("Anterior")
@@ -341,9 +353,10 @@ struct NowPlayingView: View {
             Spacer()
             Button { player.next() } label: {
                 Image(systemName: "forward.end.fill")
-                    .font(.system(size: 30))
+                    .font(.system(size: 24))
                     .foregroundStyle(Color.white)
                     .frame(width: 60, height: 60)
+                    .glassSurface(prefs, Circle(), interactive: true)
             }
             .buttonStyle(PressableStyle(scale: 0.88))
             .accessibilityLabel("Siguiente")
@@ -360,7 +373,7 @@ struct NowPlayingView: View {
                             .foregroundStyle(Ink.onAccent)
                             .frame(width: 15, height: 15)
                             .background(accent, in: Circle())
-                            .offset(x: -4, y: 6)
+                            .offset(x: 3, y: -3)
                     }
                 }
         }
@@ -368,15 +381,12 @@ struct NowPlayingView: View {
 
     private func modeButton(icon: String, on: Bool, label: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            VStack(spacing: 5) {
-                Image(systemName: icon)
-                    .font(.system(size: 21, weight: .semibold))
-                Circle()
-                    .fill(on ? accent : Color.clear)
-                    .frame(width: 4, height: 4)
-            }
-            .foregroundStyle(on ? accent : Color.white.opacity(0.6))
-            .frame(width: 48, height: 56)
+            Image(systemName: icon)
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(on ? accent : Color.white.opacity(0.7))
+                .frame(width: 48, height: 48)
+                .glassSurface(prefs, Circle(), interactive: true)
+                .overlay(Circle().stroke(on ? accent.opacity(0.7) : Color.clear, lineWidth: 1.5))
         }
         .buttonStyle(PressableStyle())
         .accessibilityLabel(label)
@@ -385,20 +395,20 @@ struct NowPlayingView: View {
 
     private var bottomRow: some View {
         HStack {
-            bottomButton("A LISTA", "text.badge.plus", Color.white.opacity(0.75)) {
+            bottomButton("A lista", "text.badge.plus", Color.white.opacity(0.75)) {
                 if let id = player.currentId { ui.sheet = .addTo(songId: id) }
             }
             Spacer()
-            bottomButton("SONIDO", "slider.horizontal.3", prefs.sound.isModified ? accent : Color.white.opacity(0.75)) {
+            bottomButton("Sonido", "slider.horizontal.3", prefs.sound.isModified ? accent : Color.white.opacity(0.75)) {
                 ui.closeNowPlaying()
                 ui.openSound()
             }
             Spacer()
-            bottomButton("EFECTOS", "sparkles", prefs.visuals.enabled ? accent : Color.white.opacity(0.75)) {
+            bottomButton("Efectos", "sparkles", prefs.visuals.enabled ? accent : Color.white.opacity(0.75)) {
                 ui.sheet = .effects
             }
             Spacer()
-            bottomButton("COLA", "list.bullet", Color.white.opacity(0.75)) {
+            bottomButton("Cola", "list.bullet", Color.white.opacity(0.75)) {
                 ui.sheet = .queue
             }
         }
@@ -408,11 +418,12 @@ struct NowPlayingView: View {
     private func bottomButton(_ label: String, _ icon: String, _ color: Color, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             VStack(spacing: 4) {
-                Image(systemName: icon).font(.system(size: 20, weight: .medium))
-                Text(label).font(.mono(9.5)).tracking(0.8)
+                Image(systemName: icon).font(.system(size: 18, weight: .medium))
+                Text(label).font(.montserrat(11, .semibold))
             }
             .foregroundStyle(color)
-            .frame(width: 72, height: 48)
+            .frame(width: 78, height: 56)
+            .glassSurface(prefs, RoundedRectangle(cornerRadius: 18, style: .continuous), interactive: true)
         }
         .buttonStyle(PressableStyle())
     }

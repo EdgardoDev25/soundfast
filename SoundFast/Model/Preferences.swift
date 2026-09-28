@@ -122,8 +122,11 @@ struct SoundSettings: Codable, Equatable {
     ]
     /// Forma del refuerzo de graves (debe coincidir con el motor de audio).
     static let bassBellWidth = 1.1          // octavas
-    static let bassBellShare = 1.0          // parte del refuerzo en la campana
-    static let bassShelfShare = 0.6         // parte en el estante por debajo
+    static let bassBellShare = 0.67         // campana principal (en el punto elegido)
+    static let bassBell2Share = 0.67        // segunda campana, un poco más abajo y ancha
+    static let bassBell2Ratio = 0.72
+    static let bassBell2Width = 1.6         // octavas
+    static let bassShelfShare = 0.45        // estante por debajo
     static let bassShelfRatio = 0.6         // el estante empieza por debajo del punto
     static let presetOrder = ["Plano", "Rock", "Pop", "Electrónica", "Vocal", "Acústica", "Noche"]
     static let presets: [String: [Double]] = [
@@ -146,8 +149,9 @@ struct SoundSettings: Codable, Equatable {
     /// 0…100 → hasta +8 dB
     var treble: Double = 10
 
-    /// Hasta +24 dB (el máximo del ecualizador de iOS): graves muy potentes.
-    var bassDb: Double { bass * 0.24 }
+    /// Hasta +36 dB. Cada banda del ecualizador de iOS llega a +24 dB, así que
+    /// el refuerzo se reparte en dos campanas y un estante.
+    var bassDb: Double { bass * 0.36 }
     var trebleDb: Double { treble * 0.08 }
 
     var isModified: Bool { bass > 0 || treble > 0 || (eqOn && preset != "Plano") }
@@ -156,11 +160,16 @@ struct SoundSettings: Codable, Equatable {
     func gain(at f: Double) -> Double { bandGain(at: f) + bassGain(at: f) + trebleGain(at: f) }
 
     func bassGain(at f: Double) -> Double {
-        let octaves = log2(f / bassFreq)
-        let sigma = SoundSettings.bassBellWidth / 2.355   // ancho → desviación de la campana
-        let bell = exp(-(octaves * octaves) / (2 * sigma * sigma))
+        func bell(_ center: Double, _ width: Double) -> Double {
+            let octaves = log2(f / center)
+            let sigma = width / 2.355   // ancho → desviación de la campana
+            return exp(-(octaves * octaves) / (2 * sigma * sigma))
+        }
         let shelf = 1 / (1 + pow(f / (bassFreq * SoundSettings.bassShelfRatio), 4))
-        return bassDb * (SoundSettings.bassBellShare * bell + SoundSettings.bassShelfShare * shelf)
+        let main = min(24, bassDb * SoundSettings.bassBellShare) * bell(bassFreq, SoundSettings.bassBellWidth)
+        let second = min(24, bassDb * SoundSettings.bassBell2Share)
+            * bell(bassFreq * SoundSettings.bassBell2Ratio, SoundSettings.bassBell2Width)
+        return main + second + min(24, bassDb * SoundSettings.bassShelfShare) * shelf
     }
 
     func trebleGain(at f: Double) -> Double { trebleDb * (1 - 1 / (1 + pow(f / 5000, 2))) }
