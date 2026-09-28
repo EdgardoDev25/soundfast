@@ -18,12 +18,14 @@ final class AppUI: ObservableObject {
         case queue
         case effects
         case addTo(songId: String)
+        case cover(songId: String)
         case picker(playlistId: String)
 
         var id: String {
             switch self {
             case .queue: return "queue"
             case .effects: return "effects"
+            case .cover(let s): return "cover-\(s)"
             case .addTo(let s): return "addTo-\(s)"
             case .picker(let p): return "picker-\(p)"
             }
@@ -81,6 +83,32 @@ final class AppUI: ObservableObject {
         }
     }
 
+    private let panelSpring = Animation.spring(response: 0.42, dampingFraction: 0.9)
+
+    /// Paneles Sonido y Ajustes (suben desde abajo; el minirreproductor queda encima).
+    func openSound() {
+        hideKeyboard()
+        withAnimation(panelSpring) {
+            settingsOpen = false
+            soundOpen = true
+        }
+    }
+
+    func openSettings() {
+        hideKeyboard()
+        withAnimation(panelSpring) {
+            soundOpen = false
+            settingsOpen = true
+        }
+    }
+
+    func closePanels() {
+        withAnimation(panelSpring) {
+            soundOpen = false
+            settingsOpen = false
+        }
+    }
+
     func hideKeyboard() {
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
     }
@@ -100,7 +128,7 @@ struct CircleIconButton: View {
                 .font(.system(size: size * 0.4, weight: .semibold))
                 .foregroundStyle(Ink.text)
                 .frame(width: size, height: size)
-                .surface(prefs, Circle(), border: Ink.border)
+                .surface(prefs, Circle(), border: Ink.border, interactive: true)
         }
         .buttonStyle(PressableStyle())
     }
@@ -205,6 +233,12 @@ struct ArtworkView: View {
     @EnvironmentObject private var artwork: ArtworkStore
     @State private var image: UIImage?
 
+    /// Cambia si cambia la canción o si se descargó una portada nueva.
+    private var loadKey: String {
+        guard let song else { return "" }
+        return song.id + "#" + String(artwork.revision[song.id] ?? 0)
+    }
+
     var body: some View {
         ZStack {
             (song.map { ArtColors.bg($0.hue) } ?? Color(hex: 0x2A2A30))
@@ -212,6 +246,7 @@ struct ArtworkView: View {
                 Image(uiImage: image)
                     .resizable()
                     .scaledToFill()
+                    .transition(.opacity)
             } else {
                 Text(song?.initial ?? "")
                     .font(.montserrat(letterSize, .heavy))
@@ -221,7 +256,8 @@ struct ArtworkView: View {
         }
         .frame(width: size, height: size)
         .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
-        .task(id: song?.id) {
+        .animation(.easeInOut(duration: 0.3), value: image)
+        .task(id: loadKey) {
             guard let song else {
                 image = nil
                 return

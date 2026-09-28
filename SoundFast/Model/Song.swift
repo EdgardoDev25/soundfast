@@ -65,6 +65,14 @@ enum Format {
         return "\(t / 60):" + String(format: "%02d", t % 60)
     }
 
+    /// 45 min · 1 h · 3 h 40 min
+    static func duration(_ seconds: Double) -> String {
+        let total = Int((seconds / 60).rounded())
+        guard total >= 60 else { return "\(total) min" }
+        let h = total / 60, m = total % 60
+        return m == 0 ? "\(h) h" : "\(h) h \(m) min"
+    }
+
     static func count(_ n: Int, _ singular: String, _ plural: String) -> String {
         "\(n) \(n == 1 ? singular : plural)"
     }

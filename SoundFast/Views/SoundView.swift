@@ -3,27 +3,13 @@ import SwiftUI
 /// Ecualizador de 10 bandas + graves y agudos independientes.
 struct SoundView: View {
     @EnvironmentObject private var prefs: Preferences
-    @Environment(\.dismiss) private var dismiss
-    /// Mientras se gira una perilla o se mueve una banda, la pantalla no se desplaza.
-    @State private var editing = false
+    @EnvironmentObject private var player: PlayerController
 
     private var accent: Color { prefs.accent.color }
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack {
-                Button { dismiss() } label: {
-                    Image(systemName: "chevron.down")
-                        .font(.system(size: 17, weight: .bold))
-                        .foregroundStyle(Ink.text)
-                        .frame(width: 40, height: 40)
-                        .background(Color.white.opacity(0.08), in: Circle())
-                }
-                .buttonStyle(PressableStyle())
-                .accessibilityLabel("Cerrar")
-                Spacer()
-                Text("Sonido").font(.montserrat(17, .bold)).foregroundStyle(Ink.text)
-                Spacer()
+            PanelHeader(title: "Sonido") {
                 Button("Restablecer") {
                     withAnimation(.easeOut(duration: 0.25)) { prefs.resetSound() }
                     Haptics.tap()
@@ -31,11 +17,7 @@ struct SoundView: View {
                 .font(.montserrat(13, .semibold))
                 .foregroundStyle(accent)
                 .buttonStyle(.plain)
-                .frame(width: 80, alignment: .trailing)
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 8)
-            .padding(.bottom, 10)
 
             ScrollView {
                 VStack(spacing: 16) {
@@ -43,13 +25,11 @@ struct SoundView: View {
                     eqCard
                 }
                 .padding(.horizontal, 20)
-                .padding(.bottom, 40)
+                // Espacio para el minirreproductor, que sigue visible abajo.
+                .padding(.bottom, player.current != nil ? 100 : 40)
             }
             .scrollIndicators(.hidden)
-            .scrollBounceBehavior(.basedOnSize)
-            .scrollDisabled(editing)
         }
-        .background(ThemeBackground())
     }
 
     // MARK: Tono (graves / agudos)
@@ -65,7 +45,7 @@ struct SoundView: View {
                 Knob(
                     value: $prefs.sound.bass,
                     size: 180, stroke: 12, innerRatio: 64.0 / 84.0, dotRadius: 5, dotDistance: 54,
-                    color: accent, onEditing: { editing = $0 }
+                    color: accent
                 ) {
                     VStack(spacing: 1) {
                         Text("GRAVES").eyebrow(10, color: Ink.dim)
@@ -84,7 +64,7 @@ struct SoundView: View {
                     Knob(
                         value: $prefs.sound.treble,
                         size: 108, stroke: 14, innerRatio: 62.0 / 84.0, dotRadius: 8, dotDistance: 50,
-                        color: Color(hex: 0xE9E7E2), onEditing: { editing = $0 }
+                        color: Color(hex: 0xE9E7E2)
                     ) {
                         Text("\(Int(prefs.sound.treble))%")
                             .font(.montserrat(17, .heavy))
@@ -172,8 +152,7 @@ struct SoundView: View {
                     BandSlider(
                         value: prefs.sound.bands[i],
                         label: SoundSettings.bandLabels[i],
-                        accent: accent,
-                        onEditing: { editing = $0 }
+                        accent: accent
                     ) { v in prefs.setBand(i, v) }
                     if i < 9 { Spacer(minLength: 0) }
                 }
@@ -191,7 +170,9 @@ struct SoundView: View {
 
 // MARK: - Perilla
 
-/// Perilla circular: se gira arrastrando hacia arriba o a la derecha.
+/// Perilla circular. Tocando el aro se gira siguiendo el dedo en círculo;
+/// tocando el centro se arrastra hacia arriba (sube) o abajo (baja).
+/// Mientras se opera se ilumina.
 struct Knob<Center: View>: View {
     @Binding var value: Double
     let size: CGFloat
@@ -200,61 +181,102 @@ struct Knob<Center: View>: View {
     let dotRadius: CGFloat
     let dotDistance: CGFloat
     let color: Color
-    let onEditing: (Bool) -> Void
     @ViewBuilder let center: () -> Center
 
-    @State private var start: Double?
+    @State private var active = false
+    @State private var startValue: Double = 0
+    @State private var startPoint: CGPoint = .zero
+    @State private var lastAngle: Double = 0
+    @State private var rotation: Double = 0
+    @State private var rotary = false
 
     var body: some View {
         let scale = size / 200
         let v = value / 100
+        let lw = stroke * scale * (active ? 1.25 : 1)
         ZStack {
+            // Halo mientras se opera.
+            Circle()
+                .stroke(color.opacity(active ? 0.55 : 0), lineWidth: lw * 2.2)
+                .blur(radius: 10)
+                .frame(width: 168 * scale, height: 168 * scale)
             Circle()
                 .trim(from: 0, to: 0.75)
-                .stroke(Ink.track, style: StrokeStyle(lineWidth: stroke * scale, lineCap: .round))
+                .stroke(Ink.track, style: StrokeStyle(lineWidth: lw, lineCap: .round))
                 .rotationEffect(.degrees(135))
                 .frame(width: 168 * scale, height: 168 * scale)
             Circle()
                 .trim(from: 0, to: 0.75 * v)
-                .stroke(color, style: StrokeStyle(lineWidth: stroke * scale, lineCap: .round))
+                .stroke(color, style: StrokeStyle(lineWidth: lw, lineCap: .round))
                 .rotationEffect(.degrees(135))
                 .frame(width: 168 * scale, height: 168 * scale)
+                .shadow(color: color.opacity(active ? 0.8 : 0), radius: 8)
             Circle()
                 .fill(Color(hex: 0x1F1F25))
-                .overlay(Circle().stroke(Color(hex: 0x2F2F36), lineWidth: 1.5))
+                .overlay(Circle().stroke(active ? color : Color(hex: 0x2F2F36), lineWidth: active ? 2 : 1.5))
                 .frame(width: 168 * scale * innerRatio, height: 168 * scale * innerRatio)
             Circle()
-                .fill(Color.white)
-                .frame(width: dotRadius * 2 * scale, height: dotRadius * 2 * scale)
+                .fill(active ? color : Color.white)
+                .frame(width: dotRadius * 2 * scale * (active ? 1.5 : 1), height: dotRadius * 2 * scale * (active ? 1.5 : 1))
+                .shadow(color: color.opacity(active ? 0.9 : 0), radius: 6)
                 .offset(y: -dotDistance * scale)
                 .rotationEffect(.degrees(-135 + 270 * v))
             center()
         }
         .frame(width: size, height: size)
-        .contentShape(Circle())
-        .highPriorityGesture(
-            // Coordenadas globales: el cálculo no depende de si la pantalla se mueve.
-            DragGesture(minimumDistance: 0, coordinateSpace: .global)
-                .onChanged { g in
-                    if start == nil {
-                        start = value
-                        onEditing(true)
-                    }
-                    let d = Double(g.translation.width - g.translation.height)
-                    let new = min(100, max(0, ((start ?? 0) + d / 2.2).rounded()))
-                    if Int(new / 10) != Int(value / 10) { Haptics.tick() }
-                    if new != value { value = new }
-                }
-                .onEnded { _ in
-                    start = nil
-                    onEditing(false)
-                }
-        )
+        .scaleEffect(active ? 1.04 : 1)
+        .animation(.spring(response: 0.25, dampingFraction: 0.7), value: active)
+        .overlay {
+            TouchSurface(
+                onBegan: { p in begin(at: p) },
+                onChanged: { p in move(to: p) },
+                onEnded: { end() }
+            )
+        }
         .accessibilityElement(children: .combine)
         .accessibilityValue("\(Int(value)) por ciento")
         .accessibilityAdjustableAction { dir in
             value = min(100, max(0, value + (dir == .increment ? 10 : -10)))
         }
+    }
+
+    private func angle(of p: CGPoint) -> Double {
+        atan2(Double(p.y - size / 2), Double(p.x - size / 2)) * 180 / .pi
+    }
+
+    private func begin(at p: CGPoint) {
+        active = true
+        startValue = value
+        startPoint = p
+        rotation = 0
+        lastAngle = angle(of: p)
+        // Aro → giro circular; centro → arrastre vertical.
+        let distance = hypot(p.x - size / 2, p.y - size / 2)
+        rotary = distance > size * 0.3
+        Haptics.soft()
+    }
+
+    private func move(to p: CGPoint) {
+        let new: Double
+        if rotary {
+            let a = angle(of: p)
+            var d = a - lastAngle
+            if d > 180 { d -= 360 }
+            if d < -180 { d += 360 }
+            lastAngle = a
+            // Muy cerca del centro el ángulo salta; se ignora.
+            if hypot(p.x - size / 2, p.y - size / 2) > size * 0.12 { rotation += d }
+            new = startValue + rotation / 270 * 100
+        } else {
+            new = startValue + Double(startPoint.y - p.y) / 1.6
+        }
+        let clamped = min(100, max(0, new.rounded()))
+        if Int(clamped / 5) != Int(value / 5) { Haptics.tick() }
+        if clamped != value { value = clamped }
+    }
+
+    private func end() {
+        active = false
     }
 }
 
@@ -264,9 +286,9 @@ struct BandSlider: View {
     let value: Double
     let label: String
     let accent: Color
-    let onEditing: (Bool) -> Void
     let onChange: (Double) -> Void
 
+    @State private var active = false
     private let height: CGFloat = 150
 
     var body: some View {
@@ -274,38 +296,37 @@ struct BandSlider: View {
         VStack(spacing: 6) {
             Text(value == 0 ? "0" : (value > 0 ? "+" : "") + "\(Int(value))")
                 .font(.mono(9.5))
-                .foregroundStyle(value == 0 ? Ink.faint : accent)
+                .foregroundStyle(value == 0 && !active ? Ink.faint : accent)
                 .frame(height: 12)
             ZStack(alignment: .top) {
-                Capsule().fill(Ink.track).frame(width: 4, height: height)
+                Capsule().fill(Ink.track).frame(width: active ? 6 : 4, height: height)
                 Rectangle().fill(Color(hex: 0x3A3A42)).frame(width: 12, height: 1).offset(y: height / 2)
                 Capsule()
                     .fill(accent)
-                    .frame(width: 4, height: abs(pos - 0.5) * height)
+                    .frame(width: active ? 6 : 4, height: abs(pos - 0.5) * height)
                     .offset(y: (value >= 0 ? pos : 0.5) * height)
+                    .shadow(color: accent.opacity(active ? 0.8 : 0), radius: 6)
                 Circle()
-                    .fill(Color.white)
+                    .fill(active ? accent : Color.white)
                     .shadow(color: .black.opacity(0.5), radius: 3, y: 2)
-                    .frame(width: 18, height: 18)
-                    .offset(y: pos * height - 9)
+                    .frame(width: active ? 22 : 18, height: active ? 22 : 18)
+                    .offset(y: pos * height - (active ? 11 : 9))
             }
             .frame(width: 28, height: height, alignment: .top)
-            .contentShape(Rectangle())
-            .highPriorityGesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { g in
-                        onEditing(true)
-                        let v = min(12, max(-12, ((0.5 - g.location.y / height) * 24).rounded()))
-                        if v != value {
-                            Haptics.tick()
-                            onChange(v)
-                        }
-                    }
-                    .onEnded { _ in onEditing(false) }
-            )
+            .animation(.spring(response: 0.22, dampingFraction: 0.75), value: active)
+            .overlay {
+                TouchSurface(
+                    onBegan: { p in
+                        active = true
+                        set(p.y)
+                    },
+                    onChanged: { p in set(p.y) },
+                    onEnded: { active = false }
+                )
+            }
             Text(label)
                 .font(.mono(9.5))
-                .foregroundStyle(Ink.dim)
+                .foregroundStyle(active ? accent : Ink.dim)
         }
         .frame(width: 28)
         .accessibilityElement(children: .ignore)
@@ -313,6 +334,14 @@ struct BandSlider: View {
         .accessibilityValue("\(Int(value)) decibelios")
         .accessibilityAdjustableAction { dir in
             onChange(min(12, max(-12, value + (dir == .increment ? 1 : -1))))
+        }
+    }
+
+    private func set(_ y: CGFloat) {
+        let v = min(12, max(-12, ((0.5 - y / height) * 24).rounded()))
+        if v != value {
+            Haptics.tick()
+            onChange(v)
         }
     }
 }

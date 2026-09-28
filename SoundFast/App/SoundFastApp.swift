@@ -8,6 +8,7 @@ struct SoundFastApp: App {
     @StateObject private var ui: AppUI
     @StateObject private var waveforms: WaveformStore
     @StateObject private var artwork: ArtworkStore
+    @StateObject private var covers: CoverService
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
@@ -18,13 +19,15 @@ struct SoundFastApp: App {
         _player = StateObject(wrappedValue: PlayerController(library: library, prefs: prefs))
         _ui = StateObject(wrappedValue: AppUI())
         _waveforms = StateObject(wrappedValue: WaveformStore())
-        _artwork = StateObject(wrappedValue: ArtworkStore())
+        let artwork = ArtworkStore()
+        _artwork = StateObject(wrappedValue: artwork)
+        _covers = StateObject(wrappedValue: CoverService(library: library, artwork: artwork))
     }
 
     var body: some Scene {
         WindowGroup {
             RootView()
-                .withStores(library, prefs, player, ui, waveforms, artwork)
+                .withStores(library, prefs, player, ui, waveforms, artwork, covers)
         }
         .onChange(of: scenePhase) { _, phase in
             switch phase {

@@ -8,6 +8,7 @@ struct RootView: View {
     @EnvironmentObject private var ui: AppUI
     @EnvironmentObject private var waveforms: WaveformStore
     @EnvironmentObject private var artwork: ArtworkStore
+    @EnvironmentObject private var covers: CoverService
 
     @State private var modalText = ""
     @State private var toast: String?
@@ -25,6 +26,9 @@ struct RootView: View {
                 PlayerStage(
                     motion: ui.motion,
                     npOpen: ui.npOpen,
+                    soundOpen: ui.soundOpen,
+                    settingsOpen: ui.settingsOpen,
+                    closePanels: { ui.closePanels() },
                     hasCurrent: player.current != nil,
                     clock: player.clock,
                     hiddenOffset: geo.size.height + geo.safeAreaInsets.top + geo.safeAreaInsets.bottom + 40
@@ -45,12 +49,6 @@ struct RootView: View {
             }
         }
         .tint(prefs.accent.color)
-        .fullScreenCover(isPresented: $ui.soundOpen) {
-            SoundView().withStores(library, prefs, player, ui, waveforms, artwork)
-        }
-        .fullScreenCover(isPresented: $ui.settingsOpen) {
-            SettingsView().withStores(library, prefs, player, ui, waveforms, artwork)
-        }
         .sheet(item: $ui.sheet) { sheet in
             Group {
                 switch sheet {
@@ -58,9 +56,10 @@ struct RootView: View {
                 case .effects: EffectsSheet()
                 case .addTo(let id): AddToPlaylistSheet(songId: id)
                 case .picker(let id): SongPickerSheet(playlistId: id)
+                case .cover(let id): CoverPickerSheet(songId: id)
                 }
             }
-            .withStores(library, prefs, player, ui, waveforms, artwork)
+            .withStores(library, prefs, player, ui, waveforms, artwork, covers)
         }
         .fileImporter(isPresented: $ui.importing, allowedContentTypes: Self.audioTypes, allowsMultipleSelection: true) { result in
             guard case .success(let urls) = result, !urls.isEmpty else { return }
@@ -168,6 +167,9 @@ struct RootView: View {
 private struct PlayerStage: View {
     @ObservedObject var motion: SheetMotion
     let npOpen: Bool
+    let soundOpen: Bool
+    let settingsOpen: Bool
+    let closePanels: () -> Void
     let hasCurrent: Bool
     let clock: PlaybackClock
     let hiddenOffset: CGFloat
@@ -187,18 +189,32 @@ private struct PlayerStage: View {
                 .ignoresSafeArea()
                 .allowsHitTesting(false)
 
+            if settingsOpen {
+                SlidingPanel(onClose: closePanels) { SettingsView() }
+                    .transition(.move(edge: .bottom))
+                    .zIndex(2)
+            }
+            if soundOpen {
+                SlidingPanel(onClose: closePanels) { SoundView() }
+                    .transition(.move(edge: .bottom))
+                    .zIndex(2)
+            }
+
             if hasCurrent {
                 MiniPlayer(clock: clock)
                     .padding(.horizontal, 10)
-                    .padding(.bottom, 64)
+                    // Sin barra de pestañas debajo (paneles abiertos) baja hasta el borde.
+                    .padding(.bottom, soundOpen || settingsOpen ? 6 : 64)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                     .accessibilityHidden(npOpen)
+                    .zIndex(3)
             }
 
             NowPlayingView(clock: clock)
                 .offset(y: npOpen ? motion.drag : hiddenOffset)
                 .allowsHitTesting(npOpen)
                 .accessibilityHidden(!npOpen)
+                .zIndex(4)
         }
     }
 }
@@ -207,9 +223,10 @@ extension View {
     /// Las hojas y pantallas completas reciben los mismos objetos compartidos.
     func withStores(
         _ library: LibraryStore, _ prefs: Preferences, _ player: PlayerController,
-        _ ui: AppUI, _ waveforms: WaveformStore, _ artwork: ArtworkStore
+        _ ui: AppUI, _ waveforms: WaveformStore, _ artwork: ArtworkStore, _ covers: CoverService
     ) -> some View {
         self.environmentObject(library)
+            .environmentObject(covers)
             .environmentObject(prefs)
             .environmentObject(player)
             .environmentObject(ui)

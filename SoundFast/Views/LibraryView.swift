@@ -105,7 +105,7 @@ struct LibraryView: View {
                     .buttonStyle(.plain)
                     .accessibilityLabel("Volver a listas")
                 } else {
-                    Text("BIBLIOTECA").eyebrow(color: accent)
+                    Text("SoundFast - Edgardo Rocha").eyebrow(color: accent)
                 }
 
                 Text(headTitle)
@@ -145,9 +145,9 @@ struct LibraryView: View {
                     CircleIconButton(systemName: "plus") { ui.importing = true }
                         .accessibilityLabel("Importar canciones")
                 }
-                CircleIconButton(systemName: "slider.horizontal.3") { ui.soundOpen = true }
+                CircleIconButton(systemName: "slider.horizontal.3") { ui.openSound() }
                     .accessibilityLabel("Sonido")
-                CircleIconButton(systemName: "gearshape") { ui.settingsOpen = true }
+                CircleIconButton(systemName: "gearshape") { ui.openSettings() }
                     .accessibilityLabel("Ajustes")
             }
             .padding(.bottom, 4)
@@ -167,8 +167,7 @@ struct LibraryView: View {
     private var headSub: String {
         switch ui.tab {
         case .songs:
-            let minutes = Int((library.totalDuration / 60).rounded())
-            return Format.count(library.songs.count, "canción", "canciones") + " · \(minutes) min"
+            return Format.count(library.songs.count, "canción", "canciones") + " · " + Format.duration(library.totalDuration)
         case .favs:
             return Format.count(library.favorites.count, "canción", "canciones")
         case .lists:
@@ -239,7 +238,7 @@ struct LibraryView: View {
                 .foregroundStyle(Ink.text)
                 .padding(.horizontal, 12)
                 .frame(height: 42)
-                .surface(prefs, RoundedRectangle(cornerRadius: 12, style: .continuous), border: Color(hex: 0x2C2C32))
+                .surface(prefs, RoundedRectangle(cornerRadius: 12, style: .continuous), border: Color(hex: 0x2C2C32), interactive: true)
             }
             .buttonStyle(PressableStyle(scale: 0.97))
 
@@ -495,6 +494,9 @@ struct SongRow: View {
             Button { ui.sheet = .addTo(songId: song.id) } label: {
                 Label("Añadir a una lista…", systemImage: "text.badge.plus")
             }
+            Button { ui.sheet = .cover(songId: song.id) } label: {
+                Label(song.hasArtwork ? "Cambiar portada…" : "Buscar portada…", systemImage: "photo")
+            }
             if song.isImportedFile {
                 Divider()
                 Button(role: .destructive) { ui.modal = .deleteSong(songId: song.id) } label: {
@@ -653,13 +655,7 @@ struct TabBar: View {
         .padding(.horizontal, 12)
         .padding(.top, 6)
         .padding(.bottom, 2)
-        .background {
-            if prefs.theme.glass {
-                Rectangle().fill(.ultraThinMaterial).ignoresSafeArea(edges: .bottom)
-            } else {
-                prefs.theme.tab.ignoresSafeArea(edges: .bottom)
-            }
-        }
+        .barBackground(prefs)
         .overlay(alignment: .top) {
             Rectangle()
                 .fill(prefs.theme.glass ? Color.white.opacity(0.14) : Color(hex: 0x1F1F24))
@@ -719,7 +715,7 @@ struct SortMenu: View {
                 .font(.system(size: 15, weight: .bold))
                 .foregroundStyle(Ink.text)
                 .frame(width: 42, height: 42)
-                .surface(prefs, RoundedRectangle(cornerRadius: 12, style: .continuous), border: Color(hex: 0x2C2C32))
+                .surface(prefs, RoundedRectangle(cornerRadius: 12, style: .continuous), border: Color(hex: 0x2C2C32), interactive: true)
         }
         .menuOrder(.fixed)
         .accessibilityLabel("Ordenar canciones")
@@ -747,7 +743,7 @@ struct RefreshButton: View {
                     value: library.isScanning
                 )
                 .frame(width: 42, height: 42)
-                .surface(prefs, RoundedRectangle(cornerRadius: 12, style: .continuous), border: Color(hex: 0x2C2C32))
+                .surface(prefs, RoundedRectangle(cornerRadius: 12, style: .continuous), border: Color(hex: 0x2C2C32), interactive: true)
         }
         .buttonStyle(PressableStyle())
         .disabled(library.isScanning)

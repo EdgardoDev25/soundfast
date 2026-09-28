@@ -163,6 +163,15 @@ final class LibraryStore: ObservableObject {
         }
     }
 
+    /// Ya hay portada guardada para esta canción (descargada de internet).
+    func markArtwork(_ id: String) {
+        guard var s = byId[id] else { return }
+        s.hasArtwork = true
+        byId[id] = s
+        if let i = songs.firstIndex(where: { $0.id == id }) { songs[i] = s }
+        scheduleSave()
+    }
+
     /// Borra del iPhone una canción importada (solo archivos, no la biblioteca de Música).
     func deleteFile(_ song: Song) {
         guard case .file(let path) = song.source else { return }

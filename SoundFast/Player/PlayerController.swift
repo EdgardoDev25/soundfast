@@ -88,7 +88,7 @@ final class PlayerController: ObservableObject {
         ctxIds = ids
         ctxName = name
         shuffle = sh
-        start(id)
+        start(id, transition: true)
         Haptics.tap()
     }
 
@@ -120,8 +120,8 @@ final class PlayerController: ObservableObject {
 
     func next() {
         guard currentId != nil, let n = nextId(manual: true) else { return }
-        start(n, autoplay: isPlaying)
-        Haptics.tap()
+        // Sin vibración: al pasar canciones se sentía como un corte.
+        start(n, autoplay: isPlaying, transition: true)
     }
 
     func previous() {
@@ -137,8 +137,7 @@ final class PlayerController: ObservableObject {
     func previousTrack() {
         let q = effectiveQueue
         guard let c = currentId, let i = q.firstIndex(of: c), !q.isEmpty else { return }
-        start(q[(i - 1 + q.count) % q.count], autoplay: isPlaying)
-        Haptics.tap()
+        start(q[(i - 1 + q.count) % q.count], autoplay: isPlaying, transition: true)
     }
 
     func seek(to time: Double) {
@@ -179,8 +178,7 @@ final class PlayerController: ObservableObject {
     }
 
     func playFromQueue(_ id: String) {
-        start(id)
-        Haptics.tap()
+        start(id, transition: true)
     }
 
     func removeFromQueue(_ id: String) {
@@ -237,11 +235,13 @@ final class PlayerController: ObservableObject {
         }
         queue = queue.filter { library.song($0) != nil }
         ctxIds = ctxIds.filter { library.song($0) != nil }
+        measureLibrary()
     }
 
     // MARK: Interno
 
-    private func start(_ id: String, at time: Double = 0, autoplay: Bool = true) {
+    /// `transition`: la canción que sonaba se desvanece mientras entra la nueva.
+    private func start(_ id: String, at time: Double = 0, autoplay: Bool = true, transition: Bool = false) {
         guard let song = library.song(id) else { return }
         currentId = id
         clock.position = time
@@ -250,7 +250,7 @@ final class PlayerController: ObservableObject {
         if autoplay { activateSession() }
         updateNowPlaying()
         saveState()
-        Task { await engine.load(song, at: time, autoplay: autoplay) }
+        Task { await engine.load(song, at: time, autoplay: autoplay, transition: transition) }
     }
 
     private func nextId(manual: Bool) -> String? {
@@ -294,6 +294,28 @@ final class PlayerController: ObservableObject {
         engine.crossfade = Double(p.crossfade)
         engine.gapless = p.gapless
         library.setSort(by: p.sortBy, ascending: p.sortAscending)
+        let wasOn = engine.normalize
+        engine.setNormalize(p.normalize)
+        if p.normalize && !wasOn { measureLibrary() }
+    }
+
+    private var measureTask: Task<Void, Never>?
+
+    /// Mide el volumen de toda la biblioteca en segundo plano (una sola vez por canción),
+    /// para que al normalizar no haya que esperar al empezar cada una.
+    func measureLibrary() {
+        guard prefs.playback.normalize else { return }
+        measureTask?.cancel()
+        let songs = library.songs
+        let store = engine.loudness
+        measureTask = Task.detached(priority: .background) {
+            for song in songs {
+                if Task.isCancelled { return }
+                if store.cached(song.id) != nil { continue }
+                guard let url = try? await MediaFiles.playableURL(for: song) else { continue }
+                _ = await store.gain(for: song.id, url: url)
+            }
+        }
     }
 
     private func startTicker() {

@@ -74,7 +74,9 @@ struct NowPlayingView: View {
                             ),
                             analyzer: player.analyzer,
                             playing: player.isPlaying,
-                            visible: ui.npOpen
+                            visible: ui.npOpen,
+                            focus: CGPoint(x: geo.size.width / 2, y: geo.safeAreaInsets.top + 75 + artSize / 2),
+                            artRadius: artSize / 2
                         )
                         // Oscurece un poco abajo para que los controles se lean bien.
                         LinearGradient(colors: [.black.opacity(0), .black.opacity(0.45)],
@@ -101,6 +103,15 @@ struct NowPlayingView: View {
         .onChange(of: player.currentId) { _, _ in
             if let s = player.current { waveforms.request(s) }
         }
+        // El analizador solo trabaja si algo en pantalla lo usa.
+        .onChange(of: analyzerNeeded, initial: true) { _, on in
+            player.analyzer.isActive = on
+        }
+    }
+
+    private var analyzerNeeded: Bool {
+        ui.npOpen && player.isPlaying
+            && ((prefs.visuals.enabled && prefs.visuals.reactive) || prefs.playback.seekStyle == "onda")
     }
 
     // MARK: Partes
@@ -193,6 +204,8 @@ struct NowPlayingView: View {
     private func titleRow(_ song: Song?) -> some View {
         let isFav = song.map { library.isFavorite($0.id) } ?? false
         return HStack(spacing: 12) {
+            // El contenedor anima la salida/entrada del título al cambiar de canción.
+            ZStack(alignment: .leading) {
             VStack(alignment: .leading, spacing: 3) {
                 Text(song?.title ?? "")
                     .font(.montserrat(23, .bold))
@@ -204,6 +217,10 @@ struct NowPlayingView: View {
                     .foregroundStyle(Color.white.opacity(0.62))
                     .lineLimit(1)
             }
+            .id(song?.id)
+            .transition(.opacity.combined(with: .offset(y: 6)))
+            }
+            .animation(.easeInOut(duration: 0.35), value: song?.id)
             Spacer(minLength: 0)
             Button {
                 if let song {
@@ -230,17 +247,15 @@ struct NowPlayingView: View {
         return GeometryReader { geo in
             Group {
                 if prefs.playback.seekStyle == "onda", let song {
-                    let bars = waveforms.bars(for: song)
-                    HStack(alignment: .center, spacing: 2) {
-                        ForEach(bars.indices, id: \.self) { i in
-                            RoundedRectangle(cornerRadius: 2)
-                                .fill((Double(i) + 0.5) / Double(bars.count) <= frac ? accent : Color.white.opacity(0.16))
-                                .frame(height: 52 * bars[i])
-                                .frame(maxWidth: .infinity)
-                        }
-                    }
+                    LiveWaveform(
+                        bars: waveforms.bars(for: song),
+                        progress: frac,
+                        accent: accent,
+                        analyzer: player.analyzer,
+                        live: ui.npOpen && player.isPlaying && scrub == nil,
+                        scrubbing: scrub != nil
+                    )
                     .frame(height: 52)
-                    .animation(.easeOut(duration: 0.3), value: bars)
                 } else {
                     ZStack(alignment: .leading) {
                         Capsule().fill(Color.white.opacity(0.16)).frame(height: 5)
@@ -372,7 +387,8 @@ struct NowPlayingView: View {
             }
             Spacer()
             bottomButton("SONIDO", "slider.horizontal.3", prefs.sound.isModified ? accent : Color.white.opacity(0.75)) {
-                ui.soundOpen = true
+                ui.closeNowPlaying()
+                ui.openSound()
             }
             Spacer()
             bottomButton("EFECTOS", "sparkles", prefs.visuals.enabled ? accent : Color.white.opacity(0.75)) {
@@ -448,13 +464,73 @@ struct NowPlayingView: View {
     /// Anima la portada hacia afuera, cambia de canción y la trae desde el otro lado.
     private func swipe(_ dir: CGFloat) {
         let out: CGFloat = dir < 0 ? -440 : 440
-        withAnimation(.easeIn(duration: 0.18)) { artX = out }
+        withAnimation(.easeIn(duration: 0.22)) { artX = out }
         Task {
-            try? await Task.sleep(nanoseconds: 190_000_000)
+            try? await Task.sleep(nanoseconds: 230_000_000)
             if dir < 0 { player.next() } else { player.previousTrack() }
-            artX = -out
+            // Entra desde más cerca y ya desvanecida: se siente como un fundido.
+            artX = -out * 0.45
             try? await Task.sleep(nanoseconds: 16_000_000)
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.82)) { artX = 0 }
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.86)) { artX = 0 }
         }
+    }
+}
+
+// MARK: - Onda viva
+
+/// Barra de progreso tipo onda: cada barra late con su franja de frecuencias
+/// y un punto marca por dónde va la canción.
+struct LiveWaveform: View {
+    let bars: [Double]
+    let progress: Double
+    let accent: Color
+    let analyzer: AudioAnalyzer
+    let live: Bool
+    let scrubbing: Bool
+
+    @State private var follower = BandFollower()
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1 / 30, paused: !live)) { timeline in
+            let levels = follower.update(analyzer.snapshot, live: live, now: timeline.date)
+            Canvas { ctx, size in
+                let n = bars.count
+                guard n > 0 else { return }
+                let gap: CGFloat = 2
+                let w = (size.width - gap * CGFloat(n - 1)) / CGFloat(n)
+                for i in 0..<n {
+                    let band = levels[min(levels.count - 1, i * levels.count / n)]
+                    let h = size.height * min(1, CGFloat(bars[i]) * (0.72 + 0.55 * band))
+                    let rect = CGRect(x: CGFloat(i) * (w + gap), y: (size.height - h) / 2, width: w, height: h)
+                    let played = (Double(i) + 0.5) / Double(n) <= progress
+                    ctx.fill(Path(roundedRect: rect, cornerRadius: min(2, w / 2)),
+                             with: .color(played ? accent : Color.white.opacity(0.16)))
+                }
+                // Punto de posición con halo.
+                let x = min(size.width - 6, max(6, size.width * progress))
+                let y = size.height / 2
+                let halo: CGFloat = scrubbing ? 16 : 11
+                ctx.fill(Path(ellipseIn: CGRect(x: x - halo, y: y - halo, width: halo * 2, height: halo * 2)),
+                         with: .radialGradient(Gradient(colors: [accent.opacity(0.55), accent.opacity(0)]),
+                                               center: CGPoint(x: x, y: y), startRadius: 0, endRadius: halo))
+                let r: CGFloat = scrubbing ? 8 : 6
+                ctx.fill(Path(ellipseIn: CGRect(x: x - r, y: y - r, width: r * 2, height: r * 2)), with: .color(.white))
+            }
+        }
+        .animation(.easeOut(duration: 0.15), value: scrubbing)
+    }
+}
+
+/// Suaviza las bandas del analizador (sube rápido, baja lento).
+final class BandFollower {
+    private var values = [CGFloat](repeating: 0, count: AudioAnalyzer.bandCount)
+
+    func update(_ s: AudioAnalyzer.Snapshot, live: Bool, now: Date) -> [CGFloat] {
+        let fresh = live && now.timeIntervalSinceReferenceDate - s.time < 0.6
+        for i in values.indices {
+            let target = fresh ? CGFloat(s.bands[i]) : 0
+            values[i] += (target - values[i]) * (target > values[i] ? 0.55 : 0.12)
+        }
+        return values
     }
 }

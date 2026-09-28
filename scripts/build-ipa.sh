@@ -15,6 +15,9 @@ if ! command -v xcodegen >/dev/null 2>&1; then
 fi
 
 xcodebuild -version
+if [ -n "${GITHUB_ACTIONS:-}" ]; then
+  echo "::notice title=Xcode::$(xcodebuild -version | tr '\n' ' ')"
+fi
 
 echo "==> Generando SoundFast.xcodeproj"
 xcodegen generate

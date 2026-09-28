@@ -7,6 +7,13 @@ struct EffectFrame {
     var level: CGFloat
     var bass: CGFloat
     var bands: [CGFloat]
+    /// Giro del anillo (grados): acelera con los golpes de bajo.
+    var spin: Double = 0
+    /// Desplazamiento de color (grados de tono): salta en cada golpe.
+    var hueShift: Double = 0
+    /// Centro de la portada y su radio (para Ondas, Remolino y Anillo).
+    var focus: CGPoint = .zero
+    var artRadius: CGFloat = 150
 }
 
 /// Suaviza lo que llega del analizador (sube rápido, baja lento) y avanza la fase.
@@ -16,6 +23,11 @@ final class VisualMotion {
     private var level: Float = 0
     private var bass: Float = 0
     private var bands = [Float](repeating: 0, count: AudioAnalyzer.bandCount)
+    private var spin: Double = 0
+    private var hueShift: Double = 0
+    private var hueTarget: Double = 0
+    private var bassAverage: Float = 0
+    private var lastBeat: TimeInterval = 0
 
     func advance(to date: Date, snapshot s: AudioAnalyzer.Snapshot, playing: Bool,
                  settings: VisualSettings, reduceMotion: Bool) -> EffectFrame {
@@ -37,11 +49,24 @@ final class VisualMotion {
         if reduceMotion { rate *= 0.25 }
         phase += dt * rate * (1 + Double(level) * 0.7)
 
+        // Anillo: gira lento y se dispara con cada golpe de bajo (como los parlantes JBL).
+        let b = Double(bass)
+        spin += dt * (25 + 520 * b * b + 90 * Double(level)) * (0.4 + settings.speed * 1.2) * (reduceMotion ? 0.25 : 1)
+        bassAverage += (bass - bassAverage) * 0.05
+        if fresh, bass > bassAverage * 1.35, bass > 0.25, now - lastBeat > 0.18 {
+            lastBeat = now
+            hueTarget += 38
+        }
+        hueTarget += dt * 12
+        hueShift += (hueTarget - hueShift) * 0.12
+
         return EffectFrame(
             phase: phase,
             level: CGFloat(level),
             bass: CGFloat(bass),
-            bands: bands.map { CGFloat($0) }
+            bands: bands.map { CGFloat($0) },
+            spin: spin.truncatingRemainder(dividingBy: 360),
+            hueShift: hueShift
         )
     }
 }
@@ -117,6 +142,8 @@ struct NowPlayingEffects: View {
     let analyzer: AudioAnalyzer
     let playing: Bool
     let visible: Bool
+    var focus: CGPoint = .zero
+    var artRadius: CGFloat = 150
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var motion = VisualMotion()
@@ -127,7 +154,7 @@ struct NowPlayingEffects: View {
             let frame = motion.advance(
                 to: timeline.date, snapshot: analyzer.snapshot, playing: playing,
                 settings: settings, reduceMotion: reduceMotion
-            )
+            ).placed(at: focus, artRadius: artRadius)
             if settings.style == "liquido" {
                 if #available(iOS 18.0, *) {
                     LiquidMesh(frame: frame, colors: colors, intensity: settings.intensity)
@@ -142,9 +169,6 @@ struct NowPlayingEffects: View {
         .animation(.easeInOut(duration: 0.6), value: playing)
         .allowsHitTesting(false)
         .accessibilityHidden(true)
-        .onChange(of: animating && settings.reactive, initial: true) { _, on in
-            analyzer.isActive = on
-        }
     }
 
     private func canvas(_ frame: EffectFrame, style: String) -> some View {
@@ -200,6 +224,7 @@ enum EffectPainter {
         case "particulas": particles(&ctx, size, frame, colors)
         case "espectro": spectrum(&ctx, size, frame, colors)
         case "remolino": swirl(&ctx, size, frame, colors)
+        case "anillo": ring(&ctx, size, frame)
         default: aurora(&ctx, size, frame, colors)
         }
     }
@@ -232,7 +257,7 @@ enum EffectPainter {
 
     /// Anillos que nacen detrás de la portada y se expanden con el bajo.
     private static func waves(_ ctx: inout GraphicsContext, _ size: CGSize, _ f: EffectFrame, _ colors: [Color]) {
-        let center = CGPoint(x: size.width / 2, y: size.height * 0.33)
+        let center = f.focus == .zero ? CGPoint(x: size.width / 2, y: size.height * 0.33) : f.focus
         let maxR = hypot(size.width, size.height) * 0.75
         var halo = ctx
         halo.addFilter(.blur(radius: 30))
@@ -306,9 +331,59 @@ enum EffectPainter {
         }
     }
 
+    /// Anillo de luces alrededor de la portada (estilo parlantes JBL): gira lento,
+    /// se acelera con cada golpe de bajo y cambia de color al ritmo.
+    private static func ring(_ ctx: inout GraphicsContext, _ size: CGSize, _ f: EffectFrame) {
+        let center = f.focus == .zero ? CGPoint(x: size.width / 2, y: size.height * 0.33) : f.focus
+        let segments = 48
+        let step = 360.0 / Double(segments)
+        let r = f.artRadius + 24 + 10 * f.bass
+        let width = 7 + 12 * f.bass
+
+        func segment(_ k: Int, radius: CGFloat, spin: Double, fill: Double) -> Path {
+            var p = Path()
+            let a = spin + Double(k) * step
+            p.addArc(center: center, radius: radius,
+                     startAngle: .degrees(a), endAngle: .degrees(a + step * fill), clockwise: false)
+            return p
+        }
+        func color(_ k: Int, _ alpha: Double) -> Color {
+            .oklch(0.74, 0.2, f.hueShift + Double(k) * 7.5, alpha)
+        }
+        func intensity(_ k: Int) -> Double {
+            let n = f.bands.count
+            let mirrored = k < segments / 2 ? k : segments - 1 - k
+            let band = f.bands[min(n - 1, mirrored * n / (segments / 2))]
+            return 0.3 + 0.7 * Double(band)
+        }
+
+        // Resplandor difuso detrás.
+        var glow = ctx
+        glow.addFilter(.blur(radius: 16))
+        glow.blendMode = .plusLighter
+        for k in 0..<segments {
+            glow.stroke(segment(k, radius: r, spin: f.spin, fill: 0.9),
+                        with: .color(color(k, intensity(k) * 0.9)), lineWidth: width * 2.2)
+        }
+        // Luces nítidas.
+        var sharp = ctx
+        sharp.blendMode = .plusLighter
+        for k in 0..<segments {
+            sharp.stroke(segment(k, radius: r, spin: f.spin, fill: 0.62),
+                         with: .color(color(k, intensity(k))),
+                         style: StrokeStyle(lineWidth: width, lineCap: .round))
+        }
+        // Segundo aro fino que gira al revés.
+        for k in stride(from: 0, to: segments, by: 2) {
+            sharp.stroke(segment(k, radius: r + width + 14, spin: -f.spin * 1.6, fill: 0.35),
+                         with: .color(color(k + 12, 0.35 + 0.4 * Double(f.level))),
+                         style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
+        }
+    }
+
     /// Remolino de color que gira, más grande con el bajo.
     private static func swirl(_ ctx: inout GraphicsContext, _ size: CGSize, _ f: EffectFrame, _ colors: [Color]) {
-        let center = CGPoint(x: size.width / 2, y: size.height * 0.38)
+        let center = f.focus == .zero ? CGPoint(x: size.width / 2, y: size.height * 0.38) : f.focus
         let gradient = Gradient(colors: colors + [colors[0]])
         var c = ctx
         c.addFilter(.blur(radius: size.width * 0.09))
@@ -325,5 +400,14 @@ enum EffectPainter {
         v.fill(Path(CGRect(origin: .zero, size: size)),
                with: .radialGradient(Gradient(colors: [.clear, .black.opacity(0.55)]),
                                      center: center, startRadius: size.width * 0.25, endRadius: max(size.width, size.height) * 0.8))
+    }
+}
+
+extension EffectFrame {
+    func placed(at focus: CGPoint, artRadius: CGFloat) -> EffectFrame {
+        var f = self
+        f.focus = focus
+        f.artRadius = artRadius
+        return f
     }
 }

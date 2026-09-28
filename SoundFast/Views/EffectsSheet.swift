@@ -48,7 +48,6 @@ struct EffectsSheet: View {
         .presentationDragIndicator(.visible)
         .sheetBackground(prefs)
         .presentationCornerRadius(28)
-        .presentationBackgroundInteraction(.enabled(upThrough: .fraction(0.55)))
     }
 
     private var header: some View {

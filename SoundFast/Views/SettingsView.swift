@@ -6,30 +6,15 @@ struct SettingsView: View {
     @EnvironmentObject private var library: LibraryStore
     @EnvironmentObject private var prefs: Preferences
     @EnvironmentObject private var ui: AppUI
-    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var player: PlayerController
+    @EnvironmentObject private var covers: CoverService
+    @Environment(\.openURL) private var openURL
 
     private var accent: Color { prefs.accent.color }
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack {
-                Button { dismiss() } label: {
-                    Image(systemName: "chevron.down")
-                        .font(.system(size: 17, weight: .bold))
-                        .foregroundStyle(Ink.text)
-                        .frame(width: 40, height: 40)
-                        .background(Color.white.opacity(0.08), in: Circle())
-                }
-                .buttonStyle(PressableStyle())
-                .accessibilityLabel("Cerrar")
-                Spacer()
-                Text("Ajustes").font(.montserrat(17, .bold)).foregroundStyle(Ink.text)
-                Spacer()
-                Color.clear.frame(width: 40, height: 40)
-            }
-            .padding(.horizontal, 20)
-            .padding(.top, 8)
-            .padding(.bottom, 10)
+            PanelHeader(title: "Ajustes") { Color.clear.frame(width: 1, height: 1) }
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
@@ -48,25 +33,39 @@ struct SettingsView: View {
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 4)
-                .padding(.bottom, 48)
+                // Espacio para el minirreproductor, que sigue visible abajo.
+                .padding(.bottom, player.current != nil ? 100 : 48)
             }
             .scrollIndicators(.hidden)
         }
-        .background(ThemeBackground())
     }
 
     // MARK: Encabezado
 
     private var profile: some View {
         HStack(spacing: 14) {
-            Text("S")
-                .font(.montserrat(30, .heavy))
-                .tracking(-1.2)
-                .foregroundStyle(Ink.onAccent)
-                .frame(width: 58, height: 58)
-                .background(accent, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-            VStack(alignment: .leading, spacing: 2) {
+            Image("AppIconImage")
+                .resizable()
+                .scaledToFill()
+                .frame(width: 62, height: 62)
+                .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 15, style: .continuous).stroke(Color.white.opacity(0.12), lineWidth: 1))
+                .shadow(color: .black.opacity(0.35), radius: 8, y: 4)
+            VStack(alignment: .leading, spacing: 3) {
                 Text("SoundFast").font(.montserrat(19, .heavy)).foregroundStyle(Ink.text)
+                Button {
+                    if let url = URL(string: "https://edgfast.com") { openURL(url) }
+                } label: {
+                    HStack(spacing: 4) {
+                        Text("Desarrollado por Edgardo Rocha")
+                            .font(.montserrat(13, .semibold))
+                        Image(systemName: "arrow.up.right")
+                            .font(.system(size: 10, weight: .bold))
+                    }
+                    .foregroundStyle(accent)
+                }
+                .buttonStyle(.plain)
+                .accessibilityHint("Abre edgfast.com")
                 Text(
                     Format.count(library.songs.count, "canción", "canciones") + " · "
                         + Format.count(library.playlists.count, "lista", "listas") + " · "
@@ -144,6 +143,21 @@ struct SettingsView: View {
                     }
                 }
 
+                if prefs.theme.glass {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("Desenfoque del vidrio").font(.montserrat(15, .medium)).foregroundStyle(Ink.text)
+                            Spacer()
+                            Text(glassLabel).font(.montserrat(13)).foregroundStyle(Ink.dim)
+                        }
+                        UnitSlider(value: prefs.look.glassBlur, accent: accent, label: "Desenfoque del vidrio") {
+                            prefs.look.glassBlur = $0
+                        }
+                        Text("Menos: vidrio transparente, se ve el fondo. Más: vidrio esmerilado.")
+                            .font(.montserrat(12)).foregroundStyle(Ink.dim)
+                    }
+                }
+
                 optionRow("Fondo al reproducir", options: [("suave", "Portada suave"), ("intenso", "Intenso"), ("tema", "Tema")],
                           selected: prefs.look.npBg) { prefs.look.npBg = $0 }
                 optionRow("Forma de la portada", options: [("redondeada", "Redonda"), ("cuadrada", "Recta"), ("circulo", "Disco")],
@@ -205,6 +219,10 @@ struct SettingsView: View {
                     prefs.playback.gapless.toggle()
                 }
                 divider
+                toggleRow("Normalizar volumen", "Iguala el volumen entre canciones grabadas más bajas o más fuertes", isOn: prefs.playback.normalize) {
+                    prefs.playback.normalize.toggle()
+                }
+                divider
                 toggleRow("Reanudar al conectar auriculares", nil, isOn: prefs.playback.headphones) {
                     prefs.playback.headphones.toggle()
                 }
@@ -216,11 +234,7 @@ struct SettingsView: View {
         section("SONIDO") {
             group {
                 navRow("Ecualizador y graves", value: prefs.sound.eqOn ? prefs.sound.preset : "Apagado") {
-                    dismiss()
-                    Task {
-                        try? await Task.sleep(nanoseconds: 450_000_000)
-                        ui.soundOpen = true
-                    }
+                    ui.openSound()
                 }
                 divider
                 HStack {
@@ -293,17 +307,15 @@ struct SettingsView: View {
                 }
                 divider
                 actionRow("Importar canciones", "MP3, M4A, FLAC o WAV desde Archivos o iCloud Drive") {
-                    dismiss()
-                    Task {
-                        try? await Task.sleep(nanoseconds: 450_000_000)
-                        ui.importing = true
-                    }
+                    ui.importing = true
                 }
                 divider
                 actionRow("Actualizar biblioteca", refreshSubtitle) {
-                    Task { await library.refresh() }
+                    Task { await library.refresh(announce: true) }
                     Haptics.tap()
                 }
+                divider
+                coversRow
                 divider
                 musicAccessRow
             }
@@ -321,6 +333,48 @@ struct SettingsView: View {
                 divider
                 navRow("Compilada", value: date, chevron: false) {}
             }
+        }
+    }
+
+    private var glassLabel: String {
+        switch prefs.look.glassBlur {
+        case ..<0.34: return "Transparente"
+        case ..<0.67: return "Medio"
+        default: return "Esmerilado"
+        }
+    }
+
+    @ViewBuilder
+    private var coversRow: some View {
+        if covers.isRunning {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("Descargando portadas…").font(.montserrat(15, .semibold)).foregroundStyle(Ink.text)
+                    Spacer()
+                    Button("Detener") { covers.cancel() }
+                        .font(.montserrat(13, .semibold))
+                        .foregroundStyle(Ink.danger)
+                        .buttonStyle(.plain)
+                }
+                ProgressView(value: Double(covers.done), total: Double(max(1, covers.total)))
+                    .tint(accent)
+                Text("\(covers.done) de \(covers.total) · puedes seguir usando la app")
+                    .font(.montserrat(12)).foregroundStyle(Ink.dim)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+        } else {
+            let missing = covers.missingCount
+            actionRow(
+                "Descargar portadas",
+                missing > 0
+                    ? Format.count(missing, "canción sin portada", "canciones sin portada") + " · se buscan en internet"
+                    : "Todas tus canciones tienen portada. Para cambiar una: mantén presionada la canción."
+            ) {
+                covers.downloadMissing()
+                Haptics.tap()
+            }
+            .disabled(missing == 0)
         }
     }
 

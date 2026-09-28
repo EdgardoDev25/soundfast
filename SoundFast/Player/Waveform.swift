@@ -77,6 +77,14 @@ final class WaveformStore: ObservableObject {
 final class ArtworkStore: ObservableObject {
     private let cache = NSCache<NSString, UIImage>()
     private var palettes: [String: [Color]] = [:]
+    /// Sube cuando una portada cambia, para que las vistas la vuelvan a cargar.
+    @Published private(set) var revision: [String: Int] = [:]
+
+    func invalidate(_ songId: String) {
+        cache.removeObject(forKey: songId as NSString)
+        palettes[songId] = nil
+        revision[songId, default: 0] += 1
+    }
 
     init() {
         cache.countLimit = 300

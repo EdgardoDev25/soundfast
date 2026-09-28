@@ -9,6 +9,22 @@ struct Look: Codable, Equatable {
     var artShape = "redondeada"
     /// circulo · cuadrado
     var playShape = "circulo"
+    /// Tema Cristal: 0 = vidrio transparente … 1 = muy esmerilado.
+    var glassBlur = 0.5
+
+    init() {}
+
+    /// Tolerante con versiones anteriores (claves que faltan → valor por defecto).
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        let d = Look()
+        accent = try c.decodeIfPresent(String.self, forKey: .accent) ?? d.accent
+        theme = try c.decodeIfPresent(String.self, forKey: .theme) ?? d.theme
+        npBg = try c.decodeIfPresent(String.self, forKey: .npBg) ?? d.npBg
+        artShape = try c.decodeIfPresent(String.self, forKey: .artShape) ?? d.artShape
+        playShape = try c.decodeIfPresent(String.self, forKey: .playShape) ?? d.playShape
+        glassBlur = try c.decodeIfPresent(Double.self, forKey: .glassBlur) ?? d.glassBlur
+    }
 }
 
 struct PlaybackSettings: Codable, Equatable {
@@ -24,6 +40,8 @@ struct PlaybackSettings: Codable, Equatable {
     /// titulo · artista · album · fecha · duracion
     var sortBy = "titulo"
     var sortAscending = true
+    /// Iguala el volumen entre canciones.
+    var normalize = true
 
     static let sortOptions: [(id: String, name: String, icon: String)] = [
         ("titulo", "Título", "textformat"),
@@ -49,6 +67,7 @@ struct PlaybackSettings: Codable, Equatable {
         seekStyle = try c.decodeIfPresent(String.self, forKey: .seekStyle) ?? d.seekStyle
         sortBy = try c.decodeIfPresent(String.self, forKey: .sortBy) ?? d.sortBy
         sortAscending = try c.decodeIfPresent(Bool.self, forKey: .sortAscending) ?? d.sortAscending
+        normalize = try c.decodeIfPresent(Bool.self, forKey: .normalize) ?? d.normalize
         if sortBy == "recientes" {
             sortBy = "fecha"
             sortAscending = false
@@ -77,6 +96,7 @@ struct VisualSettings: Codable, Equatable {
         ("particulas", "Partículas", "circle.hexagongrid.fill"),
         ("espectro", "Espectro", "waveform"),
         ("remolino", "Remolino", "tornado"),
+        ("anillo", "Anillo", "circle.dashed"),
     ]
 
     static let palettes: [(id: String, name: String)] = [
@@ -102,8 +122,8 @@ struct SoundSettings: Codable, Equatable {
     ]
     /// Forma del refuerzo de graves (debe coincidir con el motor de audio).
     static let bassBellWidth = 1.1          // octavas
-    static let bassBellShare = 0.85         // parte del refuerzo en la campana
-    static let bassShelfShare = 0.45        // parte en el estante por debajo
+    static let bassBellShare = 1.0          // parte del refuerzo en la campana
+    static let bassShelfShare = 0.55        // parte en el estante por debajo
     static let bassShelfRatio = 0.6         // el estante empieza por debajo del punto
     static let presetOrder = ["Plano", "Rock", "Pop", "Electrónica", "Vocal", "Acústica", "Noche"]
     static let presets: [String: [Double]] = [
@@ -126,7 +146,8 @@ struct SoundSettings: Codable, Equatable {
     /// 0…100 → hasta +8 dB
     var treble: Double = 10
 
-    var bassDb: Double { bass * 0.12 }
+    /// Hasta +18 dB (antes +12): graves con mucha más fuerza.
+    var bassDb: Double { bass * 0.18 }
     var trebleDb: Double { treble * 0.08 }
 
     var isModified: Bool { bass > 0 || treble > 0 || (eqOn && preset != "Plano") }

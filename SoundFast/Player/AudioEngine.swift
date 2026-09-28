@@ -1,11 +1,12 @@
 import AVFoundation
 import AudioToolbox
 
-/// Motor de audio: dos "platos" (para el fundido entre canciones) → mezclador →
-/// ecualizador (10 bandas + graves + agudos) → limitador → salida.
+/// Motor de audio: dos "platos" (para los fundidos) → ganancia por plato
+/// (normalizar volumen) → mezclador → ecualizador (10 bandas + graves + agudos)
+/// → limitador → salida.
 ///
 /// Todo corre en el hilo principal; un temporizador revisa la posición para
-/// detectar el cambio de canción, iniciar fundidos y precargar la siguiente
+/// detectar el cambio de canción, llevar los fundidos y precargar la siguiente
 /// (reproducción sin pausas).
 @MainActor
 final class AudioEngine {
@@ -21,12 +22,19 @@ final class AudioEngine {
 
     var crossfade: Double = 0
     var gapless = true
+    private(set) var normalize = false
 
     private(set) var isPlaying = false
     private(set) var currentSongId: String?
 
     /// Volumen y frecuencias de lo que suena, para los efectos visuales.
     let analyzer = AudioAnalyzer()
+    /// Volumen medido de cada canción, para normalizar.
+    let loudness = LoudnessStore()
+
+    /// Duración del fundido al cambiar de canción a mano.
+    private let skipFadeOut = 0.55
+    private let skipFadeIn = 0.35
 
     // MARK: Grafo
 
@@ -42,14 +50,22 @@ final class AudioEngine {
     // MARK: Estado
 
     private var currentFile: AVAudioFile?
+    private var currentGain: Float = 0
     private var pausedTime: Double = 0
     private var lastTime: Double = 0
     private var generation = 0
     private var timer: Timer?
+    /// Abriendo un archivo: no confundir el silencio con "se acabó la canción".
+    private var isLoading = false
 
-    private var fading: Deck?
-    private var fadeStart = Date()
-    private var fadeDuration: Double = 0
+    private struct FadeOut {
+        let deck: Deck
+        let start: Date
+        let duration: Double
+        let from: Float
+    }
+    private var fadeOut: FadeOut?
+    private var fadeIn: (start: Date, duration: Double)?
 
     /// Evita pedir la siguiente canción más de una vez por pista.
     private var lookaheadDoneFor: Int?
@@ -58,17 +74,23 @@ final class AudioEngine {
 
     private final class Deck {
         let node = AVAudioPlayerNode()
+        /// Solo para la ganancia de normalización (globalGain admite subir, no solo bajar).
+        let gain = AVAudioUnitEQ(numberOfBands: 1)
         let bus: AVAudioNodeBus
         var items: [Item] = []
         var format: AVAudioFormat?
 
-        init(bus: AVAudioNodeBus) { self.bus = bus }
+        init(bus: AVAudioNodeBus) {
+            self.bus = bus
+            gain.bands[0].bypass = true
+        }
     }
 
     private struct Item {
         let serial: Int
         let songId: String
         let file: AVAudioFile
+        let gainDb: Float
         let startFrame: AVAudioFramePosition
         let frames: AVAudioFrameCount
         let nodeStart: AVAudioFramePosition
@@ -89,14 +111,18 @@ final class AudioEngine {
         engine.attach(mix)
         engine.attach(eq)
         engine.attach(limiter)
-        for deck in decks { engine.attach(deck.node) }
+        for deck in decks {
+            engine.attach(deck.node)
+            engine.attach(deck.gain)
+        }
 
         let format = engine.mainMixerNode.outputFormat(forBus: 0)
         engine.connect(mix, to: eq, format: format)
         engine.connect(eq, to: limiter, format: format)
         engine.connect(limiter, to: engine.mainMixerNode, format: format)
         for deck in decks {
-            engine.connect(deck.node, to: mix, fromBus: 0, toBus: deck.bus, format: nil)
+            engine.connect(deck.node, to: deck.gain, format: nil)
+            engine.connect(deck.gain, to: mix, fromBus: 0, toBus: deck.bus, format: nil)
         }
 
         for (i, f) in SoundSettings.bandFrequencies.enumerated() {
@@ -107,7 +133,7 @@ final class AudioEngine {
             band.gain = 0
             band.bypass = false
         }
-        // Graves: campana centrada en el punto elegido + estante suave por debajo.
+        // Graves: campana centrada en el punto elegido + estante por debajo.
         eq.bands[10].filterType = .parametric
         eq.bands[10].bandwidth = Float(SoundSettings.bassBellWidth)
         eq.bands[12].filterType = .lowShelf
@@ -151,9 +177,30 @@ final class AudioEngine {
         treble.gain = Float(s.trebleDb)
         treble.bypass = s.treble <= 0
 
-        // Un poco de margen para no saturar; el limitador atrapa los picos.
-        // (Antes se bajaba demasiado y el refuerzo de graves casi no se notaba.)
-        eq.globalGain = -Float(max(0, s.peakGain) * 0.3)
+        // Poco margen: el limitador atrapa los picos y así el refuerzo se siente completo.
+        eq.globalGain = -Float(max(0, s.peakGain) * 0.22)
+    }
+
+    // MARK: Normalizar volumen
+
+    func setNormalize(_ on: Bool) {
+        guard on != normalize else { return }
+        normalize = on
+        guard let id = currentSongId else { return }
+        if on {
+            if let g = loudness.cached(id) {
+                currentGain = g
+                active.gain.globalGain = g
+            }
+        } else {
+            currentGain = 0
+            for deck in decks { deck.gain.globalGain = 0 }
+        }
+    }
+
+    private func gain(for song: Song, url: URL) async -> Float {
+        guard normalize else { return 0 }
+        return await loudness.gain(for: song.id, url: url)
     }
 
     // MARK: Control
@@ -170,11 +217,26 @@ final class AudioEngine {
     var hasLoadedSong: Bool { currentFile != nil }
 
     /// Abre una canción y (si `autoplay`) empieza a sonar desde `time`.
-    func load(_ song: Song, at time: Double = 0, autoplay: Bool) async {
+    /// Con `transition`, si ya sonaba algo, la canción anterior se desvanece
+    /// mientras entra la nueva (cambio manual suave).
+    func load(_ song: Song, at time: Double = 0, autoplay: Bool, transition: Bool = false) async {
         generation += 1
         let gen = generation
-        stopDecks()
-        stopTimer()
+        let smooth = transition && autoplay && isPlaying && currentFile != nil && !active.items.isEmpty
+
+        if smooth {
+            beginFadeOut(active, duration: skipFadeOut)
+            activeIndex = 1 - activeIndex
+            active.node.stop()
+            active.items.removeAll()
+            fadeIn = nil
+            lookaheadDoneFor = nil
+            lookaheadBusy = false
+        } else {
+            stopDecks()
+            stopTimer()
+        }
+        isLoading = true
         currentSongId = song.id
         currentFile = nil
         pausedTime = time
@@ -185,13 +247,18 @@ final class AudioEngine {
             let url = try await MediaFiles.playableURL(for: song)
             guard gen == generation else { return }
             let file = try AVAudioFile(forReading: url)
+            let g = await gain(for: song, url: url)
             guard gen == generation else { return }
             currentFile = file
+            currentGain = g
+            isLoading = false
             // Si se pausó mientras cargaba, isPlaying ya es false.
-            if isPlaying { try start(from: pausedTime) }
+            if isPlaying { try start(from: pausedTime, fadeIn: smooth ? skipFadeIn : 0) }
         } catch {
             guard gen == generation else { return }
+            isLoading = false
             isPlaying = false
+            stopDecks()
             onError?(error)
         }
     }
@@ -222,7 +289,7 @@ final class AudioEngine {
     func seek(to time: Double) {
         pausedTime = max(0, time)
         lastTime = pausedTime
-        guard isPlaying else { return }
+        guard isPlaying, !isLoading else { return }
         do {
             try start(from: pausedTime)
         } catch {
@@ -236,6 +303,7 @@ final class AudioEngine {
         stopDecks()
         engine.pause()
         stopTimer()
+        isLoading = false
         currentFile = nil
         currentSongId = nil
         isPlaying = false
@@ -244,17 +312,23 @@ final class AudioEngine {
 
     // MARK: Interno
 
-    private func start(from time: Double) throws {
+    private func start(from time: Double, fadeIn inDuration: Double = 0) throws {
         guard let file = currentFile, let id = currentSongId else { return }
-        stopDecks()
         let deck = active
+        deck.node.stop()
+        deck.items.removeAll()
+        if inDuration == 0 { stopFadeOut() }
         connect(deck, format: file.processingFormat)
+        deck.gain.globalGain = currentGain
         try startEngine()
-        schedule(file, songId: id, from: time, on: deck)
-        deck.node.volume = 1
+        schedule(file, songId: id, gainDb: currentGain, from: time, on: deck)
+        deck.node.volume = inDuration > 0 ? 0 : 1
+        fadeIn = inDuration > 0 ? (Date(), inDuration) : nil
         deck.node.play()
         isPlaying = true
         lastTime = time
+        lookaheadDoneFor = nil
+        lookaheadBusy = false
         startTimer()
     }
 
@@ -272,11 +346,13 @@ final class AudioEngine {
             return
         }
         engine.disconnectNodeOutput(deck.node)
-        engine.connect(deck.node, to: mix, fromBus: 0, toBus: deck.bus, format: format)
+        engine.disconnectNodeOutput(deck.gain)
+        engine.connect(deck.node, to: deck.gain, format: format)
+        engine.connect(deck.gain, to: mix, fromBus: 0, toBus: deck.bus, format: format)
         deck.format = format
     }
 
-    private func schedule(_ file: AVAudioFile, songId: String, from time: Double, on deck: Deck) {
+    private func schedule(_ file: AVAudioFile, songId: String, gainDb: Float, from time: Double, on deck: Deck) {
         let rate = file.processingFormat.sampleRate
         let length = max(1, file.length)
         let start = min(max(0, AVAudioFramePosition(time * rate)), length - 1)
@@ -284,7 +360,10 @@ final class AudioEngine {
         let nodeStart = deck.items.last?.nodeEnd ?? 0
         deck.node.scheduleSegment(file, startingFrame: start, frameCount: frames, at: nil, completionHandler: nil)
         itemSerial += 1
-        deck.items.append(Item(serial: itemSerial, songId: songId, file: file, startFrame: start, frames: frames, nodeStart: nodeStart))
+        deck.items.append(Item(
+            serial: itemSerial, songId: songId, file: file, gainDb: gainDb,
+            startFrame: start, frames: frames, nodeStart: nodeStart
+        ))
     }
 
     private func stopDecks() {
@@ -293,9 +372,27 @@ final class AudioEngine {
             deck.items.removeAll()
             deck.node.volume = 1
         }
-        fading = nil
+        fadeOut = nil
+        fadeIn = nil
         lookaheadDoneFor = nil
         lookaheadBusy = false
+    }
+
+    private func beginFadeOut(_ deck: Deck, duration: Double) {
+        if let current = fadeOut, current.deck !== deck {
+            current.deck.node.stop()
+            current.deck.items.removeAll()
+            current.deck.node.volume = 1
+        }
+        fadeOut = FadeOut(deck: deck, start: Date(), duration: duration, from: deck.node.volume)
+    }
+
+    private func stopFadeOut() {
+        guard let f = fadeOut else { return }
+        f.deck.node.stop()
+        f.deck.items.removeAll()
+        f.deck.node.volume = 1
+        fadeOut = nil
     }
 
     /// Qué pista suena en un plato y en qué cuadro del archivo va.
@@ -316,7 +413,7 @@ final class AudioEngine {
 
     private func startTimer() {
         guard timer == nil else { return }
-        let t = Timer(timeInterval: 0.05, repeats: true) { [weak self] _ in
+        let t = Timer(timeInterval: 0.03, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.tick() }
         }
         RunLoop.main.add(t, forMode: .common)
@@ -329,13 +426,13 @@ final class AudioEngine {
     }
 
     private func tick() {
-        guard isPlaying else { return }
-        updateFade()
+        updateFades()
+        guard isPlaying, !isLoading else { return }
 
         let deck = active
         guard let loc = locate(deck) else {
             // Se acabó todo lo programado en el plato activo.
-            guard fading == nil, !lookaheadBusy else { return }
+            guard fadeOut == nil, !lookaheadBusy else { return }
             isPlaying = false
             pausedTime = 0
             stopDecks()
@@ -351,6 +448,8 @@ final class AudioEngine {
             // Entró la canción precargada (sin pausas).
             currentSongId = item.songId
             currentFile = item.file
+            currentGain = item.gainDb
+            deck.gain.globalGain = item.gainDb
             onAdvance?(item.songId)
         }
 
@@ -358,7 +457,7 @@ final class AudioEngine {
         let remaining = Double(Int64(item.frames) - (frame - item.startFrame)) / item.rate
         guard lookaheadDoneFor != item.serial, !lookaheadBusy else { return }
 
-        if crossfade > 0, fading == nil, remaining <= crossfade {
+        if crossfade > 0, fadeOut == nil, remaining <= crossfade {
             beginCrossfade(after: item)
         } else if crossfade == 0, gapless, remaining <= 8 {
             preloadGapless(after: item, on: deck)
@@ -377,14 +476,15 @@ final class AudioEngine {
             guard let self else { return }
             defer { self.lookaheadBusy = false }
             guard let url = try? await MediaFiles.playableURL(for: next),
-                  let file = try? AVAudioFile(forReading: url),
-                  gen == self.generation, self.isPlaying, deck === self.active,
+                  let file = try? AVAudioFile(forReading: url) else { return }
+            let g = await self.gain(for: next, url: url)
+            guard gen == self.generation, self.isPlaying, deck === self.active,
                   let format = deck.format,
                   format.sampleRate == file.processingFormat.sampleRate,
                   format.channelCount == file.processingFormat.channelCount
             else { return }
             // Mismo formato: se encadena en el mismo plato, sin corte.
-            self.schedule(file, songId: next.id, from: 0, on: deck)
+            self.schedule(file, songId: next.id, gainDb: g, from: 0, on: deck)
         }
     }
 
@@ -400,54 +500,66 @@ final class AudioEngine {
             guard let self else { return }
             defer { self.lookaheadBusy = false }
             guard let url = try? await MediaFiles.playableURL(for: next),
-                  let file = try? AVAudioFile(forReading: url),
-                  gen == self.generation, self.isPlaying, self.fading == nil
-            else { return }
+                  let file = try? AVAudioFile(forReading: url) else { return }
+            let g = await self.gain(for: next, url: url)
+            guard gen == self.generation, self.isPlaying, self.fadeOut == nil else { return }
 
             let old = self.active
             var remaining = 0.5
             if let loc = self.locate(old) {
                 remaining = max(0.5, Double(Int64(loc.item.frames) - (loc.frame - loc.item.startFrame)) / loc.item.rate)
             }
+            let duration = min(self.crossfade, remaining)
 
             let incoming = self.other
             incoming.node.stop()
             incoming.items.removeAll()
             self.connect(incoming, format: file.processingFormat)
-            self.schedule(file, songId: next.id, from: 0, on: incoming)
+            incoming.gain.globalGain = g
+            self.schedule(file, songId: next.id, gainDb: g, from: 0, on: incoming)
             incoming.node.volume = 0
             incoming.node.play()
 
+            self.beginFadeOut(old, duration: duration)
             self.activeIndex = 1 - self.activeIndex
-            self.fading = old
-            self.fadeStart = Date()
-            self.fadeDuration = min(self.crossfade, remaining)
+            self.fadeIn = (Date(), duration)
             self.currentSongId = next.id
             self.currentFile = file
+            self.currentGain = g
             self.lastTime = 0
             self.onAdvance?(next.id)
         }
     }
 
-    private func updateFade() {
-        guard let old = fading else { return }
-        let p = min(1, Date().timeIntervalSince(fadeStart) / max(0.1, fadeDuration))
-        // Curva de igual potencia: el volumen total no "se hunde" a mitad del fundido.
-        active.node.volume = Float(sin(p * .pi / 2))
-        old.node.volume = Float(cos(p * .pi / 2))
-        if p >= 1 {
-            old.node.stop()
-            old.items.removeAll()
-            old.node.volume = 1
-            fading = nil
+    /// Curvas de igual potencia: el volumen total no "se hunde" a mitad del fundido.
+    private func updateFades() {
+        let now = Date()
+        if let f = fadeOut {
+            let p = min(1, now.timeIntervalSince(f.start) / max(0.05, f.duration))
+            f.deck.node.volume = f.from * Float(cos(p * .pi / 2))
+            if p >= 1 {
+                f.deck.node.stop()
+                f.deck.items.removeAll()
+                f.deck.node.volume = 1
+                fadeOut = nil
+            }
+        }
+        if let f = fadeIn {
+            let p = min(1, now.timeIntervalSince(f.start) / max(0.05, f.duration))
+            active.node.volume = Float(sin(p * .pi / 2))
+            if p >= 1 {
+                active.node.volume = 1
+                fadeIn = nil
+            }
         }
     }
 
     private func handleConfigurationChange() {
         // Cambió la salida (auriculares, Bluetooth, AirPlay): el motor se detuvo.
-        guard isPlaying else { return }
+        guard isPlaying, !isLoading else { return }
         let t = lastTime
         for deck in decks { deck.format = nil }
+        stopFadeOut()
         do {
             pausedTime = t
             try start(from: t)
@@ -455,5 +567,93 @@ final class AudioEngine {
             isPlaying = false
             onError?(error)
         }
+    }
+}
+
+// MARK: - Volumen de cada canción
+
+/// Mide qué tan fuerte suena cada canción (una sola vez) y calcula cuánto
+/// subirla o bajarla para que todas suenen parejo.
+final class LoudnessStore: @unchecked Sendable {
+    /// Nivel objetivo (RMS con compuerta, dBFS).
+    static let target: Float = -13
+    static let maxBoost: Float = 8
+    static let maxCut: Float = -9
+
+    private let lock = NSLock()
+    private var cache: [String: Float] = [:]
+    private var saveScheduled = false
+
+    private static var fileURL: URL {
+        let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir.appendingPathComponent("loudness.json")
+    }
+
+    init() {
+        if let data = try? Data(contentsOf: Self.fileURL),
+           let saved = try? JSONDecoder().decode([String: Float].self, from: data) {
+            cache = saved
+        }
+    }
+
+    func cached(_ songId: String) -> Float? {
+        lock.withLock { cache[songId] }
+    }
+
+    var measuredCount: Int { lock.withLock { cache.count } }
+
+    /// Ganancia en dB para esta canción (la mide si hace falta).
+    func gain(for songId: String, url: URL) async -> Float {
+        if let g = cached(songId) { return g }
+        let g = await Task.detached(priority: .userInitiated) { LoudnessStore.analyze(url) }.value
+        guard let g else { return 0 }
+        lock.withLock { cache[songId] = g }
+        save()
+        return g
+    }
+
+    private func save() {
+        let snapshot = lock.withLock { cache }
+        if let data = try? JSONEncoder().encode(snapshot) {
+            try? data.write(to: Self.fileURL, options: .atomic)
+        }
+    }
+
+    /// RMS de ~90 ventanas repartidas por la canción, ignorando silencios
+    /// y pasajes muy bajos (parecido a como se mide la sonoridad en streaming).
+    static func analyze(_ url: URL) -> Float? {
+        guard let file = try? AVAudioFile(forReading: url), file.length > 0 else { return nil }
+        let rate = file.processingFormat.sampleRate
+        let window = AVAudioFrameCount(min(32768, max(4096, rate * 0.4)))
+        guard let buffer = AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: window) else { return nil }
+        let total = file.length
+        let count = 90
+        var levels: [Float] = []
+
+        for i in 0..<count {
+            let center = AVAudioFramePosition(Double(total) * (Double(i) + 0.5) / Double(count))
+            file.framePosition = max(0, min(total - AVAudioFramePosition(window), center - AVAudioFramePosition(window / 2)))
+            buffer.frameLength = 0
+            guard (try? file.read(into: buffer, frameCount: window)) != nil,
+                  let data = buffer.floatChannelData, buffer.frameLength > 0 else { continue }
+            let channels = Int(buffer.format.channelCount)
+            let n = Int(buffer.frameLength)
+            var sum: Float = 0
+            for c in 0..<min(2, channels) {
+                let ch = data[c]
+                for j in 0..<n { sum += ch[j] * ch[j] }
+            }
+            let ms = sum / Float(n * min(2, channels))
+            if ms > 0 { levels.append(10 * log10(ms)) }
+        }
+
+        // Compuerta absoluta (silencios) y relativa (pasajes 10 dB por debajo del promedio).
+        let loud = levels.filter { $0 > -50 }
+        guard !loud.isEmpty else { return nil }
+        let mean = 10 * log10(loud.map { pow(10, $0 / 10) }.reduce(0, +) / Float(loud.count))
+        let gated = loud.filter { $0 > mean - 10 }
+        let level = 10 * log10(gated.map { pow(10, $0 / 10) }.reduce(0, +) / Float(max(1, gated.count)))
+        return min(maxBoost, max(maxCut, target - level))
     }
 }
