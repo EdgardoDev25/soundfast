@@ -197,10 +197,9 @@ struct SongPickerSheet: View {
     var body: some View {
         let playlist = library.playlist(playlistId)
         let selected = Set(playlist?.songIds ?? [])
-        let q = query.trimmingCharacters(in: .whitespaces).lowercased()
-        let songs = library.songs.filter {
-            q.isEmpty || $0.title.lowercased().contains(q) || $0.artist.lowercased().contains(q)
-        }
+        // Filtra la biblioteca, que tiene el texto ya preparado: hacerlo aquí
+        // repasaba todos los títulos en cada letra que se escribía.
+        let songs = library.visible(query: query, favoritesOnly: false)
         VStack(spacing: 0) {
             SheetHeader(
                 title: "Añadir a “\(playlist?.name ?? "")”",

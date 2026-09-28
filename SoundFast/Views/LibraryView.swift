@@ -1,3 +1,4 @@
+import Combine
 import SwiftUI
 
 /// Biblioteca: Canciones, Favoritos y Listas, con buscador e índice A–Z.
@@ -17,21 +18,15 @@ struct LibraryView: View {
         return library.playlist(id)
     }
 
-    private var trimmedQuery: String { ui.query.trimmingCharacters(in: .whitespaces).lowercased() }
+    private var trimmedQuery: String { ui.query.trimmingCharacters(in: .whitespaces) }
 
-    private func matches(_ s: Song) -> Bool {
-        let q = trimmedQuery
-        return q.isEmpty || s.title.lowercased().contains(q) || s.artist.lowercased().contains(q)
-            || s.album.lowercased().contains(q)
-    }
-
+    /// El filtrado lo hace la biblioteca, que tiene el texto ya en minúsculas.
     private var visibleSongs: [Song] {
         switch ui.tab {
         case .songs:
-            return library.songs.filter(matches)
+            return library.visible(query: ui.query, favoritesOnly: false)
         case .favs:
-            let favs = Set(library.favorites)
-            return library.songs.filter { favs.contains($0.id) && matches($0) }
+            return library.visible(query: ui.query, favoritesOnly: true)
         case .lists:
             guard let playlist else { return [] }
             return playlist.songIds.compactMap { library.song($0) }
@@ -56,23 +51,12 @@ struct LibraryView: View {
         ZStack(alignment: .trailing) {
                 content(songs)
                 if showAZ {
-                    AZIndex(songs: library.songs)
+                    AZIndex(present: library.presentLetters, az: ui.az)
                         .padding(.trailing, 2)
                         .padding(.top, 6)
                         .padding(.bottom, player.current != nil ? 96 : 12)
                 }
-                if let letter = ui.azLetter {
-                    Text(letter)
-                        .font(.montserrat(36, .heavy))
-                        .foregroundStyle(accent)
-                        .frame(width: 72, height: 72)
-                        .background(Color(hex: 0x1F1F24), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-                        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(Color(hex: 0x33333A), lineWidth: 1))
-                        .shadow(color: .black.opacity(0.5), radius: 15, y: 12)
-                        .padding(.trailing, 40)
-                        .allowsHitTesting(false)
-                        .frame(maxHeight: .infinity, alignment: .center)
-                }
+                AZBubble(az: ui.az)
         }
         // Título, botones y buscador sobre vidrio; la lista se desliza por debajo.
         .safeAreaInset(edge: .top, spacing: 0) {
@@ -338,8 +322,10 @@ struct LibraryView: View {
                     guard let id = player.currentId, songs.contains(where: { $0.id == id }) else { return }
                     withAnimation(.easeInOut(duration: 0.4)) { proxy.scrollTo(id, anchor: .center) }
                 }
-                .onChange(of: ui.azLetter) { _, letter in
-                    guard let letter, let target = firstSong(from: letter) else { return }
+                // Con onReceive en vez de onChange: así esta vista no se suscribe
+                // al índice y arrastrarlo no la vuelve a armar en cada letra.
+                .onReceive(ui.az.$letter) { letter in
+                    guard let letter, let target = library.firstSong(fromLetter: letter) else { return }
                     proxy.scrollTo(target, anchor: .top)
                 }
             }
@@ -354,12 +340,6 @@ struct LibraryView: View {
             library.movePlaylistSongs(id, from: from, to: to)
             Haptics.tick()
         }
-    }
-
-    private func firstSong(from letter: String) -> String? {
-        guard let i = Song.indexLetters.firstIndex(of: letter) else { return nil }
-        let match = library.songs.first { (Song.indexLetters.firstIndex(of: $0.indexLetter) ?? 0) >= i }
-        return (match ?? library.songs.last)?.id
     }
 
     @ViewBuilder

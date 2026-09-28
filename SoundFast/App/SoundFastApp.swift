@@ -33,8 +33,9 @@ struct SoundFastApp: App {
         .onChange(of: scenePhase) { _, phase in
             switch phase {
             case .background:
-                player.saveState()
+                player.saveStateNow()
                 library.saveNow()
+                prefs.saveNow()
             case .active:
                 // Recoge canciones copiadas desde Archivos o desde Windows.
                 if library.onboarded || !library.songs.isEmpty {

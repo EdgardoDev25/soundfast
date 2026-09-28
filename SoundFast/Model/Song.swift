@@ -32,7 +32,7 @@ struct Song: Identifiable, Codable, Hashable {
 
     /// Inicial que se muestra en la portada generada.
     var initial: String {
-        guard let first = title.trimmingCharacters(in: .whitespaces).first else { return "·" }
+        guard let first = title.first(where: { !$0.isWhitespace }) else { return "·" }
         return String(first).uppercased()
     }
 
@@ -43,15 +43,26 @@ struct Song: Identifiable, Codable, Hashable {
 
     static let indexLetters: [String] = ["#"] + "ABCDEFGHIJKLMNÑOPQRSTUVWXYZ".map { String($0) }
 
+    /// Tildes y diéresis a su letra base. Es una tabla en vez de
+    /// `folding(.diacriticInsensitive)` porque aquello pasa por ICU y hacerlo
+    /// canción por canción, cada vez que se dibuja la lista, se notaba.
+    private static let baseLetters: [Character: Character] = [
+        "Á": "A", "À": "A", "Ä": "A", "Â": "A", "Ã": "A", "Å": "A",
+        "É": "E", "È": "E", "Ë": "E", "Ê": "E",
+        "Í": "I", "Ì": "I", "Ï": "I", "Î": "I",
+        "Ó": "O", "Ò": "O", "Ö": "O", "Ô": "O", "Õ": "O", "Ø": "O",
+        "Ú": "U", "Ù": "U", "Ü": "U", "Û": "U",
+        "Ý": "Y", "Ç": "C",
+    ]
+
     static func indexLetter(for title: String) -> String {
-        guard let first = title.trimmingCharacters(in: .whitespaces).first else { return "#" }
-        let upper = String(first).uppercased()
-        if upper == "Ñ" { return upper }
-        let folded = upper.folding(options: .diacriticInsensitive, locale: Locale(identifier: "es"))
-        if let scalar = folded.unicodeScalars.first, scalar.value >= 65, scalar.value <= 90 {
-            return String(Character(scalar))
-        }
-        return "#"
+        guard let first = title.first(where: { !$0.isWhitespace }),
+              let upper = String(first).uppercased().first else { return "#" }
+        if upper == "Ñ" { return "Ñ" }
+        let base = baseLetters[upper] ?? upper
+        guard let scalar = base.unicodeScalars.first,
+              base.unicodeScalars.count == 1, scalar.value >= 65, scalar.value <= 90 else { return "#" }
+        return String(base)
     }
 }
 

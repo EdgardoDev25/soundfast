@@ -9,6 +9,14 @@ final class SheetMotion: ObservableObject {
     @Published var drag: CGFloat = 0
 }
 
+/// Letra que se está tocando en el índice A–Z. Va aparte de AppUI para que
+/// arrastrar el índice no vuelva a filtrar y redibujar la biblioteca entera
+/// en cada letra.
+@MainActor
+final class AZState: ObservableObject {
+    @Published var letter: String?
+}
+
 /// Estado de navegación de la interfaz.
 @MainActor
 final class AppUI: ObservableObject {
@@ -62,7 +70,7 @@ final class AppUI: ObservableObject {
     @Published var sheet: Sheet?
     @Published var modal: Modal?
     @Published var importing = false
-    @Published var azLetter: String?
+    let az = AZState()
 
     /// Para `.alert(isPresented:)`.
     var modalShown: Bool {
@@ -72,6 +80,7 @@ final class AppUI: ObservableObject {
 
     func openNowPlaying() {
         hideKeyboard()
+        Haptics.warmUp()
         withAnimation(.spring(response: 0.46, dampingFraction: 0.86)) {
             npOpen = true
             motion.drag = 0
@@ -267,8 +276,8 @@ struct ArtworkView: View {
                 image = nil
                 return
             }
-            image = artwork.cached(song)
-            if image == nil { image = await artwork.load(song) }
+            image = artwork.cached(song, size: size)
+            if image == nil { image = await artwork.load(song, size: size) }
         }
     }
 }

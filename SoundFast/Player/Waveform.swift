@@ -1,4 +1,5 @@
 import AVFoundation
+import ImageIO
 import SwiftUI
 import UIKit
 
@@ -73,43 +74,80 @@ final class WaveformStore: ObservableObject {
 }
 
 /// Portadas guardadas en la caché, cargadas fuera del hilo principal.
+///
+/// Hay dos tamaños a propósito: las filas de la lista y el minirreproductor usan
+/// una miniatura, porque tener en memoria cientos de portadas a tamaño completo
+/// (y dejar que el sistema las encoja en cada cuadro) hacía pesado el scroll.
 @MainActor
 final class ArtworkStore: ObservableObject {
-    private let cache = NSCache<NSString, UIImage>()
+    /// Lado máximo de la miniatura, en píxeles: 64 pt a 3× de un iPhone Pro.
+    static let thumbPixels: CGFloat = 192
+    /// Hasta este tamaño en puntos se usa la miniatura.
+    static let thumbLimit: CGFloat = 80
+
+    private let full = NSCache<NSString, UIImage>()
+    private let thumbs = NSCache<NSString, UIImage>()
     private var palettes: [String: [Color]] = [:]
     /// Sube cuando una portada cambia, para que las vistas la vuelvan a cargar.
     @Published private(set) var revision: [String: Int] = [:]
 
+    init() {
+        // Las grandes solo hacen falta en "Sonando ahora": con unas pocas basta.
+        full.countLimit = 8
+        thumbs.countLimit = 500
+    }
+
     func invalidate(_ songId: String) {
-        cache.removeObject(forKey: songId as NSString)
+        full.removeObject(forKey: songId as NSString)
+        thumbs.removeObject(forKey: songId as NSString)
         palettes[songId] = nil
         revision[songId, default: 0] += 1
     }
 
-    init() {
-        cache.countLimit = 300
+    private func box(_ size: CGFloat) -> NSCache<NSString, UIImage> {
+        size <= Self.thumbLimit ? thumbs : full
     }
 
-    func cached(_ song: Song) -> UIImage? {
+    func cached(_ song: Song, size: CGFloat) -> UIImage? {
         guard song.hasArtwork else { return nil }
-        return cache.object(forKey: song.id as NSString)
+        return box(size).object(forKey: song.id as NSString)
     }
 
-    func load(_ song: Song) async -> UIImage? {
+    func load(_ song: Song, size: CGFloat) async -> UIImage? {
         guard song.hasArtwork else { return nil }
+        let cache = box(size)
         if let image = cache.object(forKey: song.id as NSString) { return image }
         let path = MediaFiles.artworkURL(for: song.id).path
+        let small = size <= Self.thumbLimit
+        let maxPixels = Self.thumbPixels
         let image = await Task.detached(priority: .userInitiated) { () -> UIImage? in
-            UIImage(contentsOfFile: path)?.preparingForDisplay()
+            small ? ArtworkStore.thumbnail(path: path, maxPixels: maxPixels)
+                  : UIImage(contentsOfFile: path)?.preparingForDisplay()
         }.value
         if let image { cache.setObject(image, forKey: song.id as NSString) }
         return image
     }
 
+    /// Decodifica directamente al tamaño pedido (ImageIO), sin pasar por la
+    /// imagen completa: mucho más rápido y con mucha menos memoria.
+    private nonisolated static func thumbnail(path: String, maxPixels: CGFloat) -> UIImage? {
+        let url = URL(fileURLWithPath: path) as CFURL
+        guard let source = CGImageSourceCreateWithURL(url, nil) else { return nil }
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceShouldCacheImmediately: true,
+            kCGImageSourceThumbnailMaxPixelSize: maxPixels,
+        ]
+        guard let cg = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else { return nil }
+        return UIImage(cgImage: cg)
+    }
+
     /// Colores dominantes de la portada, para los efectos de fondo.
+    /// Le basta la miniatura: de todos modos se reduce a 24×24 para contarlos.
     func palette(_ song: Song) async -> [Color] {
         if let p = palettes[song.id] { return p }
-        guard let image = await load(song) else { return [] }
+        guard let image = await load(song, size: Self.thumbLimit) else { return [] }
         let colors = await Task.detached(priority: .utility) {
             EffectPalette.dominant(from: image)
         }.value

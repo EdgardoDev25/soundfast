@@ -2,12 +2,12 @@ import SwiftUI
 
 /// Índice A–Z lateral: se arrastra el dedo para saltar de letra.
 struct AZIndex: View {
-    let songs: [Song]
+    /// Letras que tienen canciones. Ya vienen calculadas de la biblioteca.
+    let present: Set<String>
+    @ObservedObject var az: AZState
     @EnvironmentObject private var prefs: Preferences
-    @EnvironmentObject private var ui: AppUI
 
     var body: some View {
-        let present = Set(songs.map(\.indexLetter))
         let letters = Song.indexLetters
         GeometryReader { geo in
             VStack(spacing: 0) {
@@ -15,7 +15,7 @@ struct AZIndex: View {
                     Text(l)
                         .font(.mono(9.5, .bold))
                         .foregroundStyle(
-                            l == ui.azLetter ? prefs.accent.color
+                            l == az.letter ? prefs.accent.color
                                 : present.contains(l) ? Color(hex: 0xA9A8AE) : Color(hex: 0x3C3C43)
                         )
                         .frame(maxHeight: .infinity)
@@ -28,15 +28,36 @@ struct AZIndex: View {
                     .onChanged { value in
                         let h = max(1, geo.size.height)
                         let i = min(letters.count - 1, max(0, Int(value.location.y / h * CGFloat(letters.count))))
-                        if letters[i] != ui.azLetter {
+                        if letters[i] != az.letter {
                             Haptics.tick()
-                            ui.azLetter = letters[i]
+                            az.letter = letters[i]
                         }
                     }
-                    .onEnded { _ in ui.azLetter = nil }
+                    .onEnded { _ in az.letter = nil }
             )
         }
         .frame(width: 20)
+    }
+}
+
+/// La letra grande que aparece en el centro mientras se arrastra el índice.
+struct AZBubble: View {
+    @ObservedObject var az: AZState
+    @EnvironmentObject private var prefs: Preferences
+
+    var body: some View {
+        if let letter = az.letter {
+            Text(letter)
+                .font(.montserrat(36, .heavy))
+                .foregroundStyle(prefs.accent.color)
+                .frame(width: 72, height: 72)
+                .background(Color(hex: 0x1F1F24), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(Color(hex: 0x33333A), lineWidth: 1))
+                .shadow(color: .black.opacity(0.5), radius: 15, y: 12)
+                .padding(.trailing, 40)
+                .allowsHitTesting(false)
+                .frame(maxHeight: .infinity, alignment: .center)
+        }
     }
 }
 

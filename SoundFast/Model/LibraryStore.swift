@@ -2,11 +2,24 @@ import Foundation
 import MediaPlayer
 import UIKit
 
+/// Lo que se guarda en disco. Fuera de la clase para poder codificarlo en otro hilo.
+private struct LibrarySnapshot: Codable, Sendable {
+    var songs: [Song]
+    var favorites: [String]
+    var playlists: [Playlist]
+    var onboarded: Bool
+}
+
 /// Canciones, favoritos y listas. Se guarda en Application Support/library.json.
 @MainActor
 final class LibraryStore: ObservableObject {
     @Published private(set) var songs: [Song] = []
-    @Published var favorites: [String] = [] { didSet { scheduleSave() } }
+    @Published var favorites: [String] = [] {
+        didSet {
+            favoriteSet = Set(favorites)
+            scheduleSave()
+        }
+    }
     @Published var playlists: [Playlist] = [] { didSet { scheduleSave() } }
     @Published var onboarded = false { didSet { scheduleSave() } }
     @Published private(set) var isScanning = false
@@ -28,12 +41,23 @@ final class LibraryStore: ObservableObject {
     private var byId: [String: Song] = [:]
     private var saveTask: Task<Void, Never>?
 
-    private struct Snapshot: Codable {
-        var songs: [Song]
-        var favorites: [String]
-        var playlists: [Playlist]
-        var onboarded: Bool
+    /// Lo que la lista consulta a cada rato, calculado una sola vez al cambiar la
+    /// biblioteca. Antes se recalculaba canción por canción en cada redibujado:
+    /// buscar, arrastrar el índice A–Z o cambiar de canción repasaba la biblioteca
+    /// entera pasando títulos a minúsculas y quitando tildes.
+    private struct Keys {
+        /// Título, artista y álbum tal cual, para saber si hay que recalcular.
+        let raw: String
+        /// Lo mismo en minúsculas, para el buscador.
+        let search: String
+        /// Letra del índice A–Z.
+        let letter: String
     }
+    private var keys: [String: Keys] = [:]
+    private var favoriteSet: Set<String> = []
+    /// Letras del índice A–Z que tienen al menos una canción.
+    private(set) var presentLetters: Set<String> = []
+    private(set) var totalDuration: Double = 0
 
     private static var fileURL: URL {
         let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -43,25 +67,46 @@ final class LibraryStore: ObservableObject {
 
     init() {
         if let data = try? Data(contentsOf: LibraryStore.fileURL),
-           let snap = try? JSONDecoder().decode(Snapshot.self, from: data) {
+           let snap = try? JSONDecoder().decode(LibrarySnapshot.self, from: data) {
             favorites = snap.favorites
             playlists = snap.playlists
             onboarded = snap.onboarded
             setSongs(snap.songs)
         }
+        // Dentro de init los observadores no corren, así que va aquí a mano.
+        favoriteSet = Set(favorites)
     }
 
     // MARK: Consultas
 
     func song(_ id: String) -> Song? { byId[id] }
 
-    func isFavorite(_ id: String) -> Bool { favorites.contains(id) }
+    func isFavorite(_ id: String) -> Bool { favoriteSet.contains(id) }
 
     func playlist(_ id: String) -> Playlist? { playlists.first { $0.id == id } }
 
-    var totalDuration: Double { songs.reduce(0) { $0 + $1.duration } }
-
     var hasMusicAccess: Bool { musicAccess == .authorized }
+
+    /// Canciones que se ven en la lista, ya filtradas por el buscador.
+    func visible(query: String, favoritesOnly: Bool) -> [Song] {
+        let q = query.trimmingCharacters(in: .whitespaces).lowercased()
+        if q.isEmpty && !favoritesOnly { return songs }
+        return songs.filter { song in
+            if favoritesOnly, !favoriteSet.contains(song.id) { return false }
+            guard !q.isEmpty else { return true }
+            return keys[song.id]?.search.contains(q) ?? false
+        }
+    }
+
+    /// Primera canción de esa letra del índice (o la siguiente que haya).
+    func firstSong(fromLetter letter: String) -> String? {
+        guard let i = Song.indexLetters.firstIndex(of: letter) else { return nil }
+        let match = songs.first { song in
+            let l = keys[song.id]?.letter ?? "#"
+            return (Song.indexLetters.firstIndex(of: l) ?? 0) >= i
+        }
+        return (match ?? songs.last)?.id
+    }
 
     // MARK: Favoritos y listas
 
@@ -148,11 +193,17 @@ final class LibraryStore: ObservableObject {
         let found = await Task.detached(priority: .userInitiated) {
             await LibraryScanner.scan(existing: existing, includeLibrary: includeLibrary)
         }.value
-        setSongs(found)
-        prune()
+        // Al volver a la app se reescanea siempre, y casi siempre sale lo mismo.
+        // Reordenar la biblioteca entera (comparación por idioma, cara) y rehacer
+        // los índices para nada se sentía como un frenazo al entrar.
+        let sameAsBefore = found.count == byId.count && found.allSatisfy { byId[$0.id] == $0 }
+        if !sameAsBefore {
+            setSongs(found)
+            prune()
+            scheduleSave()
+        }
         isScanning = false
         lastScan = Date()
-        scheduleSave()
         if announce {
             let added = found.filter { !before.contains($0.id) }.count
             let removed = before.subtracting(found.map(\.id)).count
@@ -202,6 +253,27 @@ final class LibraryStore: ObservableObject {
     private func setSongs(_ list: [Song]) {
         songs = sort(list)
         byId = Dictionary(list.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+
+        var newKeys: [String: Keys] = [:]
+        newKeys.reserveCapacity(list.count)
+        var letters = Set<String>()
+        var total: Double = 0
+        for song in list {
+            total += song.duration
+            let raw = song.title + "\u{1}" + song.artist + "\u{1}" + song.album
+            // Si el texto no cambió, se reaprovecha lo ya calculado.
+            if let old = keys[song.id], old.raw == raw {
+                newKeys[song.id] = old
+                letters.insert(old.letter)
+                continue
+            }
+            let letter = Song.indexLetter(for: song.title)
+            newKeys[song.id] = Keys(raw: raw, search: raw.lowercased(), letter: letter)
+            letters.insert(letter)
+        }
+        keys = newKeys
+        presentLetters = letters
+        totalDuration = total
     }
 
     private func prune() {
@@ -248,15 +320,33 @@ final class LibraryStore: ObservableObject {
         saveTask = Task { [weak self] in
             try? await Task.sleep(nanoseconds: 400_000_000)
             guard !Task.isCancelled else { return }
-            self?.saveNow()
+            self?.saveInBackground()
         }
     }
 
+    /// Guarda ya mismo, en este hilo (al pasar la app a segundo plano: si se
+    /// dejara para después podría no alcanzar a escribirse).
     func saveNow() {
-        let snap = Snapshot(songs: Array(byId.values), favorites: favorites, playlists: playlists, onboarded: onboarded)
+        let snap = snapshot()
         if let data = try? JSONEncoder().encode(snap) {
             try? data.write(to: LibraryStore.fileURL, options: .atomic)
         }
+    }
+
+    /// Guardado de todos los días. Codificar la biblioteca entera a JSON toma su
+    /// tiempo, así que se hace fuera del hilo principal para no frenar una
+    /// animación en curso.
+    private func saveInBackground() {
+        let snap = snapshot()
+        let url = LibraryStore.fileURL
+        Task.detached(priority: .utility) {
+            guard let data = try? JSONEncoder().encode(snap) else { return }
+            try? data.write(to: url, options: .atomic)
+        }
+    }
+
+    private func snapshot() -> LibrarySnapshot {
+        LibrarySnapshot(songs: Array(byId.values), favorites: favorites, playlists: playlists, onboarded: onboarded)
     }
 }
 

@@ -32,6 +32,11 @@ final class PlayerController: ObservableObject {
     private var subscriptions = Set<AnyCancellable>()
     private var resumeAfterInterruption = false
     private var pausedByRouteChange = false
+    /// Portada ya preparada para la pantalla de bloqueo (se carga fuera del hilo principal).
+    private var lockArtwork: (id: String, art: MPMediaItemArtwork)?
+    private var lockArtworkTask: Task<Void, Never>?
+    private var lockArtworkLoading: String?
+    private var saveTask: Task<Void, Never>?
 
     var position: Double { clock.position }
 
@@ -449,6 +454,7 @@ final class PlayerController: ObservableObject {
         let center = MPNowPlayingInfoCenter.default()
         guard let song = current else {
             center.nowPlayingInfo = nil
+            forgetLockArtwork()
             return
         }
         var info: [String: Any] = [
@@ -459,10 +465,50 @@ final class PlayerController: ObservableObject {
             MPNowPlayingInfoPropertyElapsedPlaybackTime: clock.position,
             MPNowPlayingInfoPropertyPlaybackRate: isPlaying ? 1.0 : 0.0,
         ]
-        if song.hasArtwork, let image = UIImage(contentsOfFile: MediaFiles.artworkURL(for: song.id).path) {
-            info[MPMediaItemPropertyArtwork] = Self.artwork(image)
+        if let held = lockArtwork, held.id == song.id {
+            info[MPMediaItemPropertyArtwork] = held.art
         }
         center.nowPlayingInfo = info
+
+        // La portada de la pantalla de bloqueo se lee del disco y se decodifica
+        // fuera del hilo principal: hacerlo aquí congelaba la animación cada vez
+        // que se cambiaba de canción.
+        if song.hasArtwork {
+            if lockArtwork?.id != song.id, lockArtworkLoading != song.id { loadLockArtwork(song.id) }
+        } else {
+            forgetLockArtwork()
+        }
+    }
+
+    /// La portada de una canción cambió: hay que rehacer la de la pantalla de bloqueo.
+    func coverChanged(_ id: String) {
+        if lockArtwork?.id == id || lockArtworkLoading == id { forgetLockArtwork() }
+        updateNowPlaying()
+    }
+
+    private func forgetLockArtwork() {
+        lockArtwork = nil
+        lockArtworkLoading = nil
+        lockArtworkTask?.cancel()
+    }
+
+    private func loadLockArtwork(_ id: String) {
+        lockArtworkTask?.cancel()
+        lockArtworkLoading = id
+        let path = MediaFiles.artworkURL(for: id).path
+        lockArtworkTask = Task { [weak self] in
+            let image = await Task.detached(priority: .utility) { () -> UIImage? in
+                UIImage(contentsOfFile: path)?.preparingForDisplay()
+            }.value
+            guard let self, !Task.isCancelled else { return }
+            if self.lockArtworkLoading == id { self.lockArtworkLoading = nil }
+            guard let image, self.currentId == id else { return }
+            let art = Self.artwork(image)
+            self.lockArtwork = (id, art)
+            var info = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? [:]
+            info[MPMediaItemPropertyArtwork] = art
+            MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+        }
     }
 
     /// Fuera del actor principal: el sistema pide la imagen desde otro hilo.
@@ -484,7 +530,25 @@ final class PlayerController: ObservableObject {
 
     private static let stateKey = "sf.player"
 
+    /// Guarda con un respiro. Codificar la cola entera (puede tener miles de
+    /// canciones) justo al cambiar de pista se sentía como un tirón en la
+    /// animación; medio segundo después nadie lo nota.
     func saveState() {
+        saveTask?.cancel()
+        saveTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            guard !Task.isCancelled else { return }
+            self?.writeState()
+        }
+    }
+
+    /// Guarda ya mismo (al pasar la app a segundo plano).
+    func saveStateNow() {
+        saveTask?.cancel()
+        writeState()
+    }
+
+    private func writeState() {
         let s = SavedState(
             currentId: currentId, position: clock.position, queue: queue, ctxIds: ctxIds,
             ctxName: ctxName, shuffle: shuffle, repeatMode: repeatMode

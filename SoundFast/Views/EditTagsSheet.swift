@@ -168,7 +168,7 @@ struct EditTagsSheet: View {
               MediaFiles.saveArtwork(image, for: songId) else { return }
         library.markArtwork(songId)
         artwork.invalidate(songId)
-        player.updateNowPlaying()
+        player.coverChanged(songId)
         Haptics.tap()
     }
 }

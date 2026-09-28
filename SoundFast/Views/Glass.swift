@@ -84,6 +84,29 @@ extension View {
     }
 }
 
+// MARK: - Grupos de vidrio
+
+/// Agrupa varios botones de vidrio que están juntos (una fila de controles).
+/// En iOS 26, Liquid Glass los resuelve en una sola pasada en vez de una por
+/// botón: es lo que evita el tirón al abrir o cerrar "Sonando ahora".
+/// En iOS anteriores no cambia nada.
+struct GlassGroup<Content: View>: View {
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        #if compiler(>=6.2)
+        if #available(iOS 26.0, *) {
+            // Separación 0: se dibujan juntos pero no se funden entre sí.
+            GlassEffectContainer(spacing: 0) { content }
+        } else {
+            content
+        }
+        #else
+        content
+        #endif
+    }
+}
+
 // MARK: - Fondo de pantalla
 
 /// Fondo de las pantallas. Con Cristal agrega manchas de color difusas
@@ -117,7 +140,9 @@ private struct GlassBlobs: View {
                 blob(.oklch(0.45, 0.15, h - 60), size: w * 1.2)
                     .position(x: w * 0.2, y: ht * 0.9)
             }
-            .blur(radius: 70)
+            // Los degradados radiales ya salen difusos: un desenfoque encima
+            // obligaba a recalcular toda la pantalla en cada cuadro de las
+            // transiciones (la biblioteca se escala mientras baja el reproductor).
             .opacity(0.75)
         }
     }

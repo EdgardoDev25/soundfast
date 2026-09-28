@@ -205,15 +205,15 @@ struct SoundSettings: Codable, Equatable {
 /// Preferencias guardadas en el iPhone (apariencia, reproducción y sonido).
 @MainActor
 final class Preferences: ObservableObject {
-    @Published var look: Look { didSet { save("look", look) } }
+    @Published var look: Look { didSet { markDirty("look") } }
     @Published var playback: PlaybackSettings {
         didSet {
-            save("playback", playback)
+            markDirty("playback")
             Haptics.enabled = playback.haptics
         }
     }
-    @Published var sound: SoundSettings { didSet { save("sound", sound) } }
-    @Published var visuals: VisualSettings { didSet { save("visuals", visuals) } }
+    @Published var sound: SoundSettings { didSet { markDirty("sound") } }
+    @Published var visuals: VisualSettings { didSet { markDirty("visuals") } }
 
     init() {
         look = Preferences.load("look") ?? Look()
@@ -257,6 +257,42 @@ final class Preferences: ObservableObject {
     }
 
     private static let prefix = "sf.prefs."
+
+    private var dirty = Set<String>()
+    private var saveTask: Task<Void, Never>?
+
+    /// Girar una perilla o mover una banda cambia el ajuste decenas de veces por
+    /// segundo. Guardar en cada paso (codificar a JSON y escribir) se sentía;
+    /// ahora se espera a que el dedo pare.
+    private func markDirty(_ key: String) {
+        dirty.insert(key)
+        saveTask?.cancel()
+        saveTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 300_000_000)
+            guard !Task.isCancelled else { return }
+            self?.flush()
+        }
+    }
+
+    /// Guarda lo que quede pendiente (al pasar la app a segundo plano).
+    func saveNow() {
+        saveTask?.cancel()
+        flush()
+    }
+
+    private func flush() {
+        let keys = dirty
+        dirty.removeAll()
+        for key in keys {
+            switch key {
+            case "look": save(key, look)
+            case "playback": save(key, playback)
+            case "sound": save(key, sound)
+            case "visuals": save(key, visuals)
+            default: break
+            }
+        }
+    }
 
     private func save<T: Encodable>(_ key: String, _ value: T) {
         if let data = try? JSONEncoder().encode(value) {

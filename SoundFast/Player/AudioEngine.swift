@@ -8,6 +8,12 @@ import AudioToolbox
 /// Todo corre en el hilo principal; un temporizador revisa la posición para
 /// detectar el cambio de canción, llevar los fundidos y precargar la siguiente
 /// (reproducción sin pausas).
+/// Pasa un archivo recién abierto de un hilo a otro. Solo lo usa un hilo a la vez:
+/// se abre fuera del principal y de ahí en adelante es del motor.
+private struct AudioFileBox: @unchecked Sendable {
+    let file: AVAudioFile
+}
+
 @MainActor
 final class AudioEngine {
     // MARK: Callbacks hacia el controlador
@@ -161,6 +167,15 @@ final class AudioEngine {
         }
     }
 
+    /// Abrir un archivo lee del disco y recorre la cabecera (en un MP3 largo puede
+    /// tardar). Hacerlo en el hilo principal congelaba la animación al cambiar de
+    /// canción, así que se abre aparte.
+    private nonisolated static func openFile(_ url: URL) async throws -> AVAudioFile {
+        try await Task.detached(priority: .userInitiated) {
+            AudioFileBox(file: try AVAudioFile(forReading: url))
+        }.value.file
+    }
+
     /// Fuera del actor principal: el bloque corre en el hilo de audio.
     private nonisolated static func installTap(on node: AVAudioNode, analyzer: AudioAnalyzer) {
         node.installTap(onBus: 0, bufferSize: 1024, format: nil) { buffer, _ in
@@ -274,7 +289,7 @@ final class AudioEngine {
         do {
             let url = try await MediaFiles.playableURL(for: song)
             guard gen == generation else { return }
-            let file = try AVAudioFile(forReading: url)
+            let file = try await Self.openFile(url)
             guard gen == generation else { return }
             // Normalizar sin demorar el arranque: si aún no se midió, se mide
             // en segundo plano y se aplica al terminar.
@@ -528,7 +543,7 @@ final class AudioEngine {
             guard let self else { return }
             defer { self.lookaheadBusy = false }
             guard let url = try? await MediaFiles.playableURL(for: next),
-                  let file = try? AVAudioFile(forReading: url) else { return }
+                  let file = try? await Self.openFile(url) else { return }
             let g = await self.gain(for: next, url: url)
             guard gen == self.generation, self.isPlaying, deck === self.active,
                   let format = deck.format,
@@ -552,7 +567,7 @@ final class AudioEngine {
             guard let self else { return }
             defer { self.lookaheadBusy = false }
             guard let url = try? await MediaFiles.playableURL(for: next),
-                  let file = try? AVAudioFile(forReading: url) else { return }
+                  let file = try? await Self.openFile(url) else { return }
             let g = await self.gain(for: next, url: url)
             guard gen == self.generation, self.isPlaying, self.fadeOut == nil else { return }
 
