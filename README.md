@@ -42,17 +42,9 @@ AltServer abierto en el PC, la renovación es automática por WiFi.
 
 Límites del Apple ID gratis: 3 apps instaladas así a la vez y 10 App IDs por semana.
 
-## Etapas
+## Estado
 
-1. ✅ Base: cadena compilar → firmar → instalar.
-2. 🟡 Biblioteca y reproducción: importar archivos, biblioteca de Música (sin DRM), cola, pantalla de bloqueo, auriculares, llamadas.
-3. 🟡 Pantallas del prototipo: biblioteca con índice A–Z, Sonando ahora con onda real, listas, favoritos, buscador.
-4. 🟡 Sonido: ecualizador de 10 bandas, graves, agudos, fundido y reproducción sin pausas.
-5. 🟡 Ajustes y apariencia: acentos, temas, forma de portada y botón.
-
-6. 🟡 Versión 0.3: fuente Montserrat, tema Cristal (glassmorphism), efectos de fondo que reaccionan a la música, punto de graves rehecho, ordenar/actualizar desde la biblioteca, reordenar listas, gesto de cierre fluido.
-
-🟡 = escrito, falta probar en el iPhone.
+Qué está integrado, qué falta y el historial de versiones: ver [ESTADO.md](ESTADO.md).
 
 ## Pendiente
 
