@@ -1,0 +1,1348 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+html,body{margin:0;background:#050506;}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;scrollbar-width:none;}
+*::-webkit-scrollbar{width:0;height:0;display:none;}
+a{color:oklch(0.76 0.16 55);} a:hover{color:oklch(0.84 0.13 60);}
+input::placeholder{color:#6f6e75;}
+@keyframes eq{0%{transform:scaleY(.25)}100%{transform:scaleY(1)}}
+</style>
+</helmet>
+<div style="min-height:100vh;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:40px;padding:24px 16px;background:#050506;font-family:'Sora',system-ui,sans-serif;color:#f2f1ee;">
+  <div style="width:{{ wrapW }};height:{{ wrapH }};position:relative;flex:none;">
+    <div style="width:390px;height:844px;transform:{{ phoneTransform }};transform-origin:top left;position:absolute;top:0;left:0;border-radius:58px;box-shadow:0 0 0 11px #1a1a1d, 0 0 0 12px #34343a, 0 40px 90px rgba(0,0,0,.7);">
+      <div style="position:absolute;inset:0;border-radius:58px;overflow:hidden;background:#000;">
+
+        <!-- BIBLIOTECA -->
+        <div style="position:absolute;inset:0;transform:{{ libTransform }};transition:{{ libTransition }};border-radius:48px;overflow:hidden;background:{{ bg }};display:flex;flex-direction:column;">
+          <div style="height:58px;flex:none;"></div>
+          <div style="padding:8px 20px 0;display:flex;align-items:flex-end;justify-content:space-between;gap:12px;">
+            <div style="display:flex;flex-direction:column;gap:2px;min-width:0;">
+              <sc-if value="{{ inPlaylist }}" hint-placeholder-val="{{ false }}">
+                <button onClick="{{ backToLists }}" style="align-self:flex-start;border:none;background:transparent;padding:0;color:oklch({{ accL }} {{ accC }} {{ accH }});font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.14em;cursor:pointer;display:flex;align-items:center;gap:4px;">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg>LISTAS
+                </button>
+              </sc-if>
+              <sc-if value="{{ notInPlaylist }}" hint-placeholder-val="{{ true }}">
+                <div style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.14em;color:oklch({{ accL }} {{ accC }} {{ accH }});">BIBLIOTECA</div>
+              </sc-if>
+              <div onClick="{{ titleClick }}" style="font-size:34px;font-weight:800;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:{{ titleCursor }};">{{ headTitle }}</div>
+              <div style="font-size:13px;color:#8d8c93;display:flex;gap:10px;align-items:center;">
+                <span>{{ headSub }}</span>
+                <sc-if value="{{ inPlaylist }}" hint-placeholder-val="{{ false }}">
+                  <button onClick="{{ openRename }}" style="border:none;background:transparent;padding:0;color:oklch({{ accL }} {{ accC }} {{ accH }});font-family:'Sora',sans-serif;font-size:13px;font-weight:600;cursor:pointer;">Renombrar</button>
+                </sc-if>
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;flex:none;margin-bottom:4px;">
+              <button onClick="{{ openSound }}" style="width:42px;height:42px;border-radius:21px;border:1px solid #2a2a30;background:{{ surf }};color:#f2f1ee;display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h9M19 7h1M4 17h3M13 17h7"></path><circle cx="16" cy="7" r="2.6"></circle><circle cx="10" cy="17" r="2.6"></circle></svg>
+              </button>
+              <button onClick="{{ openSettings }}" style="width:42px;height:42px;border-radius:21px;border:1px solid #2a2a30;background:{{ surf }};color:#f2f1ee;display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="3.5"></circle><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"></path></svg>
+              </button>
+            </div>
+          </div>
+
+          <sc-if value="{{ showSearch }}" hint-placeholder-val="{{ true }}">
+            <div style="margin:14px 20px 0;height:44px;border-radius:14px;background:{{ surf }};display:flex;align-items:center;gap:10px;padding:0 12px;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8d8c93" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4"></path></svg>
+              <input value="{{ query }}" onChange="{{ onQuery }}" placeholder="Buscar canción o artista" style="flex:1;min-width:0;background:transparent;border:none;outline:none;color:#f2f1ee;font-family:'Sora',sans-serif;font-size:15px;height:100%;">
+              <sc-if value="{{ hasQuery }}" hint-placeholder-val="{{ false }}">
+                <button onClick="{{ clearQuery }}" style="width:22px;height:22px;border-radius:11px;border:none;background:#3a3a40;color:#f2f1ee;display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer;">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"><path d="M5 5l14 14M19 5L5 19"></path></svg>
+                </button>
+              </sc-if>
+            </div>
+          </sc-if>
+          <sc-if value="{{ showActions }}" hint-placeholder-val="{{ true }}">
+            <div style="margin:12px 20px 6px;display:flex;gap:10px;">
+              <button onClick="{{ playAll }}" style="flex:1;height:42px;border-radius:12px;border:none;background:oklch({{ accL }} {{ accC }} {{ accH }});color:#140c05;font-family:'Sora',sans-serif;font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4v16l13-8z"></path></svg>Reproducir
+              </button>
+              <button onClick="{{ shuffleAll }}" style="flex:1;height:42px;border-radius:12px;border:1px solid #2c2c32;background:{{ surf }};color:#f2f1ee;font-family:'Sora',sans-serif;font-weight:600;font-size:14px;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h3c5 0 7 10 12 10h3M3 17h3c5 0 7-10 12-10h3M18 4l3 3-3 3M18 14l3 3-3 3"></path></svg>Aleatorio
+              </button>
+            </div>
+          </sc-if>
+
+          <div style="flex:1;min-height:0;position:relative;">
+            <div ref="{{ listRef }}" style="position:absolute;inset:0;overflow-y:auto;padding:4px 0 200px;">
+              <sc-if value="{{ inPlaylist }}" hint-placeholder-val="{{ false }}">
+                <div onClick="{{ openPicker }}" style="height:64px;display:flex;align-items:center;gap:14px;padding:0 20px;cursor:pointer;" style-hover="background:rgba(255,255,255,.045);">
+                  <div style="width:48px;height:48px;border-radius:10px;border:1.5px dashed #3a3a42;display:flex;align-items:center;justify-content:center;color:oklch({{ accL }} {{ accC }} {{ accH }});">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>
+                  </div>
+                  <div style="font-size:15px;font-weight:600;color:oklch({{ accL }} {{ accC }} {{ accH }});">Añadir canciones</div>
+                </div>
+              </sc-if>
+              <sc-for list="{{ rows }}" as="item" hint-placeholder-count="10">
+                <div onClick="{{ item.onClick }}" style="height:64px;display:flex;align-items:center;gap:14px;padding:0 {{ item.padR }} 0 20px;cursor:pointer;background:{{ item.rowBg }};" style-hover="background:rgba(255,255,255,.045);">
+                  <div style="width:48px;height:48px;flex:none;border-radius:10px;background:{{ item.artBg }};color:{{ item.letterColor }};display:flex;align-items:center;justify-content:center;font-weight:800;font-size:20px;">{{ item.letter }}</div>
+                  <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;">
+                    <div style="font-size:15px;font-weight:600;color:{{ item.titleColor }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ item.title }}</div>
+                    <div style="font-size:13px;color:#8d8c93;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ item.artist }}</div>
+                  </div>
+                  <sc-if value="{{ item.isCurrent }}" hint-placeholder-val="{{ false }}">{{ item.eq }}</sc-if>
+                  <sc-if value="{{ item.notCurrent }}" hint-placeholder-val="{{ true }}">
+                    <div style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#6f6e75;">{{ item.dur }}</div>
+                  </sc-if>
+                  <sc-if value="{{ item.showRemove }}" hint-placeholder-val="{{ false }}">
+                    <button onClick="{{ item.onRemove }}" style="width:36px;height:36px;flex:none;border:none;background:transparent;color:#8d8c93;display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer;">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M8 12h8"></path></svg>
+                    </button>
+                  </sc-if>
+                </div>
+              </sc-for>
+
+              <sc-if value="{{ showPlaylists }}" hint-placeholder-val="{{ false }}">
+                <div onClick="{{ openNewList }}" style="height:72px;display:flex;align-items:center;gap:14px;padding:0 20px;cursor:pointer;margin-top:8px;" style-hover="background:rgba(255,255,255,.045);">
+                  <div style="width:56px;height:56px;border-radius:12px;border:1.5px dashed #3a3a42;display:flex;align-items:center;justify-content:center;color:oklch({{ accL }} {{ accC }} {{ accH }});">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>
+                  </div>
+                  <div style="font-size:16px;font-weight:600;color:oklch({{ accL }} {{ accC }} {{ accH }});">Nueva lista</div>
+                </div>
+                <sc-for list="{{ plView }}" as="p" hint-placeholder-count="2">
+                  <div onClick="{{ p.onClick }}" style="height:72px;display:flex;align-items:center;gap:14px;padding:0 20px;cursor:pointer;" style-hover="background:rgba(255,255,255,.045);">
+                    <div style="width:56px;height:56px;flex:none;border-radius:12px;background:{{ p.bg }};color:{{ p.fg }};display:flex;align-items:center;justify-content:center;font-weight:800;font-size:22px;">{{ p.letter }}</div>
+                    <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;">
+                      <div style="font-size:16px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ p.name }}</div>
+                      <div style="font-size:13px;color:#8d8c93;">{{ p.count }}</div>
+                    </div>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5a5a62" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg>
+                  </div>
+                </sc-for>
+              </sc-if>
+
+              <sc-if value="{{ noResults }}" hint-placeholder-val="{{ false }}">
+                <div style="padding:48px 32px;text-align:center;display:flex;flex-direction:column;gap:6px;">
+                  <div style="font-size:16px;font-weight:600;">Sin resultados</div>
+                  <div style="font-size:13px;color:#8d8c93;">No hay canciones para “{{ query }}”</div>
+                </div>
+              </sc-if>
+              <sc-if value="{{ favEmpty }}" hint-placeholder-val="{{ false }}">
+                <div style="padding:64px 40px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:10px;">
+                  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#5a5a62" stroke-width="1.8" stroke-linejoin="round"><path d="M12 20s-7-4.4-9.2-8.6C1.3 8.3 3 5 6.4 5c2 0 3.6 1.2 5.6 3.3C14 6.2 15.6 5 17.6 5 21 5 22.7 8.3 21.2 11.4 19 15.6 12 20 12 20z"></path></svg>
+                  <div style="font-size:17px;font-weight:700;">Aún no tienes favoritos</div>
+                  <div style="font-size:14px;color:#8d8c93;text-wrap:pretty;">Toca el corazón mientras suena una canción para guardarla aquí.</div>
+                </div>
+              </sc-if>
+              <sc-if value="{{ plEmpty }}" hint-placeholder-val="{{ false }}">
+                <div style="padding:40px 40px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:8px;">
+                  <div style="font-size:17px;font-weight:700;">Esta lista está vacía</div>
+                  <div style="font-size:14px;color:#8d8c93;text-wrap:pretty;">Añade canciones para escucharlas aparte.</div>
+                </div>
+              </sc-if>
+              <sc-if value="{{ inPlaylist }}" hint-placeholder-val="{{ false }}">
+                <div style="padding:28px 20px 0;display:flex;justify-content:center;">
+                  <button onClick="{{ askDelete }}" style="border:none;background:transparent;color:oklch(0.68 0.19 25);font-family:'Sora',sans-serif;font-size:14px;font-weight:600;cursor:pointer;padding:8px 12px;">Eliminar lista</button>
+                </div>
+              </sc-if>
+            </div>
+
+            <sc-if value="{{ showAz }}" hint-placeholder-val="{{ true }}">
+              <div onPointerDown="{{ onAzDown }}" style="position:absolute;right:2px;top:6px;bottom:206px;width:20px;display:flex;flex-direction:column;justify-content:space-between;align-items:center;touch-action:none;user-select:none;-webkit-user-select:none;cursor:pointer;z-index:3;">
+                <sc-for list="{{ azView }}" as="l" hint-placeholder-count="27">
+                  <div style="font-family:'JetBrains Mono',monospace;font-size:9.5px;font-weight:700;line-height:1;color:{{ l.color }};">{{ l.ch }}</div>
+                </sc-for>
+              </div>
+            </sc-if>
+            <sc-if value="{{ azActive }}" hint-placeholder-val="{{ false }}">
+              <div style="position:absolute;right:40px;top:40%;width:72px;height:72px;border-radius:20px;background:#1f1f24;border:1px solid #33333a;display:flex;align-items:center;justify-content:center;font-size:36px;font-weight:800;color:oklch({{ accL }} {{ accC }} {{ accH }});z-index:4;pointer-events:none;box-shadow:0 12px 30px rgba(0,0,0,.5);">{{ azLetter }}</div>
+            </sc-if>
+          </div>
+
+          <div style="position:absolute;left:0;right:0;bottom:0;height:84px;background:{{ tabBg }};border-top:1px solid #1f1f24;display:flex;padding:6px 12px 0;z-index:8;">
+            <button onClick="{{ tabSongs }}" style="flex:1;height:48px;border:none;background:transparent;color:{{ tabSongsC }};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;cursor:pointer;font-family:'Sora',sans-serif;font-size:10.5px;font-weight:600;">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V6l11-2v12"></path><circle cx="6.5" cy="18" r="2.5"></circle><circle cx="17.5" cy="16" r="2.5"></circle></svg>Canciones
+            </button>
+            <button onClick="{{ tabFavs }}" style="flex:1;height:48px;border:none;background:transparent;color:{{ tabFavsC }};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;cursor:pointer;font-family:'Sora',sans-serif;font-size:10.5px;font-weight:600;">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linejoin="round"><path d="M12 20s-7-4.4-9.2-8.6C1.3 8.3 3 5 6.4 5c2 0 3.6 1.2 5.6 3.3C14 6.2 15.6 5 17.6 5 21 5 22.7 8.3 21.2 11.4 19 15.6 12 20 12 20z"></path></svg>Favoritos
+            </button>
+            <button onClick="{{ tabLists }}" style="flex:1;height:48px;border:none;background:transparent;color:{{ tabListsC }};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;cursor:pointer;font-family:'Sora',sans-serif;font-size:10.5px;font-weight:600;">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h12M4 11h12M4 16h7"></path><path d="M18 13v7M15 17h6"></path></svg>Listas
+            </button>
+          </div>
+        </div>
+
+        <div style="position:absolute;inset:0;background:#000;opacity:{{ dimOpacity }};transition:{{ libTransition }};pointer-events:none;z-index:9;"></div>
+
+        <!-- MINI REPRODUCTOR -->
+        <sc-if value="{{ hasCurrent }}" hint-placeholder-val="{{ false }}">
+          <div onClick="{{ openNp }}" onPointerDown="{{ onMiniDown }}" style="position:absolute;left:10px;right:10px;bottom:92px;height:70px;border-radius:18px;background:{{ surf2 }};border:1px solid #2a2a30;box-shadow:0 12px 30px rgba(0,0,0,.5);z-index:10;cursor:pointer;display:flex;align-items:center;gap:12px;padding:0 8px 6px 9px;touch-action:none;user-select:none;-webkit-user-select:none;">
+            <div style="width:46px;height:46px;flex:none;border-radius:10px;background:{{ curArtBg }};color:{{ curLetterColor }};display:flex;align-items:center;justify-content:center;font-weight:800;font-size:19px;">{{ curLetter }}</div>
+            <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;">
+              <div style="font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ curTitle }}</div>
+              <sc-if value="{{ miniIdle }}" hint-placeholder-val="{{ true }}">
+                <div style="font-size:12px;color:#8d8c93;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;gap:6px;"><span style="font-family:'JetBrains Mono',monospace;color:oklch({{ accL }} {{ accC }} {{ accH }});">{{ miniPosLabel }}</span><span>·</span><span>{{ curArtist }}</span></div>
+              </sc-if>
+              <sc-if value="{{ miniSeeking }}" hint-placeholder-val="{{ false }}">
+                <div style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:oklch({{ accL2 }} {{ accC }} {{ accH }});display:flex;gap:6px;"><span>{{ miniPosLabel }}</span><span style="color:#8d8c93;font-weight:400;">/ {{ durLabel }}</span></div>
+              </sc-if>
+            </div>
+            <button data-nogesture="1" onClick="{{ miniToggle }}" style="width:46px;height:46px;flex:none;border-radius:23px;border:none;background:oklch({{ accL }} {{ accC }} {{ accH }});color:#140c05;display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer;">
+              <sc-if value="{{ isPlaying }}" hint-placeholder-val="{{ false }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="4" width="5" height="16" rx="1.2"></rect><rect x="14" y="4" width="5" height="16" rx="1.2"></rect></svg></sc-if>
+              <sc-if value="{{ isPaused }}" hint-placeholder-val="{{ true }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4v16l13-8z"></path></svg></sc-if>
+            </button>
+            <button data-nogesture="1" onClick="{{ miniNext }}" style="width:40px;height:46px;flex:none;border:none;background:transparent;color:#f2f1ee;display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M5 5v14l10-7z"></path><rect x="16.5" y="5" width="2.6" height="14" rx="1"></rect></svg>
+            </button>
+            <div style="position:absolute;left:12px;right:12px;bottom:7px;height:{{ miniBarH }};border-radius:3px;background:rgba(255,255,255,.12);transition:height .15s;">
+              <div style="height:100%;width:{{ miniPct }};border-radius:3px;background:oklch({{ accL }} {{ accC }} {{ accH }});"></div>
+              <sc-if value="{{ miniSeeking }}" hint-placeholder-val="{{ false }}">
+                <div style="position:absolute;top:50%;left:{{ miniPct }};width:20px;height:20px;margin:-10px 0 0 -10px;border-radius:10px;background:#fff;box-shadow:0 0 0 5px oklch({{ accL }} {{ accC }} {{ accH }} / .35), 0 3px 10px rgba(0,0,0,.5);"></div>
+              </sc-if>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- REPRODUCIENDO -->
+        <div onPointerDown="{{ onPanelDown }}" style="position:absolute;inset:0;z-index:30;border-radius:48px;overflow:hidden;background:{{ npBg }};transform:{{ npTransform }};transition:{{ npTransition }};touch-action:none;user-select:none;-webkit-user-select:none;display:flex;flex-direction:column;padding:54px 24px 40px;">
+          <div style="width:40px;height:5px;border-radius:3px;background:rgba(255,255,255,.28);align-self:center;margin-top:2px;"></div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;">
+            <button data-nogesture="1" onClick="{{ closeNp }}" style="width:40px;height:40px;border-radius:20px;border:none;background:rgba(255,255,255,.08);color:#f2f1ee;display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg>
+            </button>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:2px;min-width:0;">
+              <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.14em;color:rgba(255,255,255,.55);">REPRODUCIENDO DESDE</div>
+              <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px;">{{ ctxName }}</div>
+            </div>
+            <div style="width:40px;"></div>
+          </div>
+
+          <div data-art="1" style="margin-top:16px;width:300px;height:300px;flex:none;align-self:center;border-radius:{{ artRadius }};background:{{ curArtBg }};position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;box-shadow:0 30px 60px rgba(0,0,0,.45);transform:{{ artTransform }};opacity:{{ artOpacity }};transition:{{ artTransition }};cursor:grab;">
+            <div style="font-size:160px;font-weight:800;letter-spacing:-.04em;color:{{ curLetterColor }};line-height:1;">{{ curLetter }}</div>
+            <div style="position:absolute;left:16px;bottom:14px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.1em;color:{{ curLetterColor }};opacity:.8;">PORTADA DEL ÁLBUM</div>
+            <sc-if value="{{ isScrubbing }}" hint-placeholder-val="{{ false }}">
+              <div style="position:absolute;inset:0;background:rgba(0,0,0,.62);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;">
+                <div style="font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:700;color:oklch({{ accL2 }} {{ accC }} {{ accH }});">{{ deltaLabel }}</div>
+                <div style="font-family:'JetBrains Mono',monospace;font-size:56px;font-weight:700;color:#fff;letter-spacing:-.02em;">{{ posLabel }}</div>
+                <div style="font-family:'JetBrains Mono',monospace;font-size:13px;color:rgba(255,255,255,.6);">de {{ durLabel }}</div>
+              </div>
+            </sc-if>
+          </div>
+          <div style="margin-top:10px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.06em;color:rgba(255,255,255,.45);height:14px;">{{ artHint }}</div>
+
+          <div style="margin-top:14px;display:flex;align-items:center;gap:12px;">
+            <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;">
+              <div style="font-size:23px;font-weight:700;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ curTitle }}</div>
+              <div style="font-size:15px;color:rgba(255,255,255,.62);">{{ curArtist }}</div>
+            </div>
+            <button data-nogesture="1" onClick="{{ toggleFavCur }}" style="width:44px;height:44px;flex:none;border-radius:22px;border:none;background:rgba(255,255,255,.08);color:{{ favColor }};display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer;" style-active="transform:scale(.88);">
+              <sc-if value="{{ curIsFav }}" hint-placeholder-val="{{ false }}"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 20s-7-4.4-9.2-8.6C1.3 8.3 3 5 6.4 5c2 0 3.6 1.2 5.6 3.3C14 6.2 15.6 5 17.6 5 21 5 22.7 8.3 21.2 11.4 19 15.6 12 20 12 20z"></path></svg></sc-if>
+              <sc-if value="{{ curNotFav }}" hint-placeholder-val="{{ true }}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 20s-7-4.4-9.2-8.6C1.3 8.3 3 5 6.4 5c2 0 3.6 1.2 5.6 3.3C14 6.2 15.6 5 17.6 5 21 5 22.7 8.3 21.2 11.4 19 15.6 12 20 12 20z"></path></svg></sc-if>
+            </button>
+          </div>
+
+          <sc-if value="{{ waveStyle }}" hint-placeholder-val="{{ true }}">
+            <div data-nogesture="1" onPointerDown="{{ onSeekDown }}" style="margin-top:14px;height:52px;display:flex;align-items:center;gap:2px;cursor:pointer;touch-action:none;">
+              <sc-for list="{{ bars }}" as="bar" hint-placeholder-count="60">
+                <div style="flex:1;height:{{ bar.h }};background:{{ bar.bg }};border-radius:2px;"></div>
+              </sc-for>
+            </div>
+          </sc-if>
+          <sc-if value="{{ lineStyle }}" hint-placeholder-val="{{ false }}">
+            <div data-nogesture="1" onPointerDown="{{ onSeekDown }}" style="margin-top:14px;height:52px;display:flex;align-items:center;cursor:pointer;touch-action:none;">
+              <div style="flex:1;height:5px;border-radius:3px;background:rgba(255,255,255,.16);position:relative;">
+                <div style="position:absolute;left:0;top:0;bottom:0;width:{{ pctStr }};border-radius:3px;background:oklch({{ accL }} {{ accC }} {{ accH }});"></div>
+                <div style="position:absolute;top:50%;left:{{ pctStr }};width:16px;height:16px;margin:-8px 0 0 -8px;border-radius:8px;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.4);"></div>
+              </div>
+            </div>
+          </sc-if>
+          <div style="display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:12px;color:rgba(255,255,255,.6);margin-top:4px;">
+            <span style="color:#fff;">{{ posLabel }}</span><span>{{ remLabel }}</span>
+          </div>
+
+          <div style="margin-top:auto;display:flex;align-items:center;justify-content:space-between;">
+            <button data-nogesture="1" onClick="{{ toggleShuffle }}" style="width:48px;height:56px;border:none;background:transparent;color:{{ shuffleColor }};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;padding:0;cursor:pointer;">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h3c5 0 7 10 12 10h3M3 17h3c5 0 7-10 12-10h3M18 4l3 3-3 3M18 14l3 3-3 3"></path></svg>
+              <div style="width:4px;height:4px;border-radius:2px;background:{{ shuffleDot }};"></div>
+            </button>
+            <button data-nogesture="1" onClick="{{ prev }}" style="width:60px;height:60px;border:none;background:transparent;color:#fff;display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer;">
+              <svg width="34" height="34" viewBox="0 0 24 24" fill="currentColor"><path d="M19 5v14L9 12z"></path><rect x="4.9" y="5" width="2.6" height="14" rx="1"></rect></svg>
+            </button>
+            <button data-nogesture="1" onClick="{{ togglePlay }}" style="width:80px;height:80px;border-radius:{{ playRadius }};border:none;background:oklch({{ accL }} {{ accC }} {{ accH }});color:#140c05;display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer;box-shadow:0 14px 34px oklch({{ accL }} {{ accC }} {{ accH }} / .35);" style-active="transform:scale(.95);">
+              <sc-if value="{{ isPlaying }}" hint-placeholder-val="{{ false }}"><svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="4" width="5" height="16" rx="1.2"></rect><rect x="14" y="4" width="5" height="16" rx="1.2"></rect></svg></sc-if>
+              <sc-if value="{{ isPaused }}" hint-placeholder-val="{{ true }}"><svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor" style="margin-left:4px;"><path d="M6 3.5v17l15-8.5z"></path></svg></sc-if>
+            </button>
+            <button data-nogesture="1" onClick="{{ next }}" style="width:60px;height:60px;border:none;background:transparent;color:#fff;display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer;">
+              <svg width="34" height="34" viewBox="0 0 24 24" fill="currentColor"><path d="M5 5v14l10-7z"></path><rect x="16.5" y="5" width="2.6" height="14" rx="1"></rect></svg>
+            </button>
+            <button data-nogesture="1" onClick="{{ cycleRepeat }}" style="width:48px;height:56px;border:none;background:transparent;color:{{ repeatColor }};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;padding:0;cursor:pointer;position:relative;">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11V9a2 2 0 0 1 2-2h14M17 4l3 3-3 3M20 13v2a2 2 0 0 1-2 2H4M7 20l-3-3 3-3"></path></svg>
+              <div style="width:4px;height:4px;border-radius:2px;background:{{ repeatDot }};"></div>
+              <sc-if value="{{ repeatOne }}" hint-placeholder-val="{{ false }}">
+                <div style="position:absolute;top:6px;right:4px;width:15px;height:15px;border-radius:8px;background:oklch({{ accL }} {{ accC }} {{ accH }});color:#140c05;font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;">1</div>
+              </sc-if>
+            </button>
+          </div>
+
+          <div style="margin-top:16px;display:flex;justify-content:space-around;">
+            <button data-nogesture="1" onClick="{{ openAddTo }}" style="width:84px;height:48px;border:none;background:transparent;color:rgba(255,255,255,.75);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.08em;">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><path d="M4 6h12M4 11h12M4 16h7M18 13v7M14.5 16.5h7"></path></svg>A LISTA
+            </button>
+            <button data-nogesture="1" onClick="{{ openSound }}" style="width:84px;height:48px;border:none;background:transparent;color:{{ soundBtnC }};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.08em;">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><path d="M4 7h9M19 7h1M4 17h3M13 17h7"></path><circle cx="16" cy="7" r="2.6"></circle><circle cx="10" cy="17" r="2.6"></circle></svg>SONIDO
+            </button>
+            <button data-nogesture="1" onClick="{{ openQueue }}" style="width:84px;height:48px;border:none;background:transparent;color:rgba(255,255,255,.75);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.08em;">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><path d="M9 6h11M9 12h11M9 18h11"></path><circle cx="4.5" cy="6" r="1.3" fill="currentColor"></circle><circle cx="4.5" cy="12" r="1.3" fill="currentColor"></circle><circle cx="4.5" cy="18" r="1.3" fill="currentColor"></circle></svg>COLA
+            </button>
+          </div>
+        </div>
+
+        <!-- SONIDO: ECUALIZADOR + GRAVES -->
+        <div style="position:absolute;inset:0;z-index:40;border-radius:48px;overflow:hidden;background:{{ bg }};transform:{{ soundTransform }};transition:transform .42s cubic-bezier(.2,.85,.25,1);display:flex;flex-direction:column;">
+          <div style="height:54px;flex:none;"></div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 20px 10px;">
+            <button onClick="{{ closeSound }}" style="width:40px;height:40px;border-radius:20px;border:none;background:rgba(255,255,255,.08);color:#f2f1ee;display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg>
+            </button>
+            <div style="font-size:17px;font-weight:700;">Sonido</div>
+            <button onClick="{{ resetSound }}" style="border:none;background:transparent;color:oklch({{ accL }} {{ accC }} {{ accH }});font-family:'Sora',sans-serif;font-size:13px;font-weight:600;cursor:pointer;padding:8px 0;width:72px;text-align:right;">Restablecer</button>
+          </div>
+          <div style="flex:1;overflow-y:auto;padding:0 20px 40px;display:flex;flex-direction:column;gap:16px;">
+
+            <div style="border-radius:24px;background:{{ surf }};border:1px solid #232328;padding:16px 16px 18px;display:flex;flex-direction:column;gap:14px;">
+              <div style="display:flex;justify-content:space-between;align-items:baseline;">
+                <div style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.14em;color:oklch({{ accL }} {{ accC }} {{ accH }});">TONO</div>
+                <div style="font-size:12px;color:#8d8c93;">Independiente del ecualizador</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:14px;">
+                <div onPointerDown="{{ onBassDown }}" style="width:180px;height:180px;flex:none;position:relative;touch-action:none;cursor:ns-resize;user-select:none;-webkit-user-select:none;">
+                  <svg width="180" height="180" viewBox="0 0 200 200" style="position:absolute;inset:0;">
+                    <circle cx="100" cy="100" r="84" fill="none" stroke="#26262c" stroke-width="12" stroke-linecap="round" stroke-dasharray="395.8 600" transform="rotate(135 100 100)"></circle>
+                    <circle cx="100" cy="100" r="84" fill="none" stroke="oklch({{ accL }} {{ accC }} {{ accH }})" stroke-width="12" stroke-linecap="round" stroke-dasharray="{{ bassDash }}" transform="rotate(135 100 100)"></circle>
+                    <circle cx="100" cy="100" r="64" fill="#1f1f25" stroke="#2f2f36" stroke-width="1.5"></circle>
+                    <g transform="{{ bassRot }}"><circle cx="100" cy="46" r="5" fill="#fff"></circle></g>
+                  </svg>
+                  <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;gap:1px;">
+                    <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.14em;color:#8d8c93;">GRAVES</div>
+                    <div style="font-size:30px;font-weight:800;letter-spacing:-.02em;">{{ bassPct }}</div>
+                    <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:oklch({{ accL2 }} {{ accC }} {{ accH }});">{{ bassDb }}</div>
+                  </div>
+                </div>
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:10px;">
+                  <div onPointerDown="{{ onTrebleDown }}" style="width:108px;height:108px;position:relative;touch-action:none;cursor:ns-resize;user-select:none;-webkit-user-select:none;">
+                    <svg width="108" height="108" viewBox="0 0 200 200" style="position:absolute;inset:0;">
+                      <circle cx="100" cy="100" r="84" fill="none" stroke="#26262c" stroke-width="14" stroke-linecap="round" stroke-dasharray="395.8 600" transform="rotate(135 100 100)"></circle>
+                      <circle cx="100" cy="100" r="84" fill="none" stroke="#e9e7e2" stroke-width="14" stroke-linecap="round" stroke-dasharray="{{ trebleDash }}" transform="rotate(135 100 100)"></circle>
+                      <circle cx="100" cy="100" r="62" fill="#1f1f25" stroke="#2f2f36" stroke-width="2"></circle>
+                      <g transform="{{ trebleRot }}"><circle cx="100" cy="50" r="8" fill="#fff"></circle></g>
+                    </svg>
+                    <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;">
+                      <div style="font-size:17px;font-weight:800;">{{ treblePct }}</div>
+                    </div>
+                  </div>
+                  <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.14em;color:#8d8c93;">AGUDOS</div>
+                </div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:8px;">
+                <div style="font-size:12px;color:#8d8c93;">Punto de graves</div>
+                <div style="display:flex;gap:8px;">
+                  <sc-for list="{{ freqView }}" as="f" hint-placeholder-count="4">
+                    <button onClick="{{ f.onClick }}" style="flex:1;height:36px;border-radius:10px;border:1px solid {{ f.border }};background:{{ f.bg }};color:{{ f.color }};font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;cursor:pointer;">{{ f.label }}</button>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+
+            <div style="border-radius:24px;background:{{ surf }};border:1px solid #232328;padding:16px;display:flex;flex-direction:column;gap:14px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;">
+                <div style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.14em;color:oklch({{ accL }} {{ accC }} {{ accH }});">ECUALIZADOR</div>
+                <button onClick="{{ toggleEq }}" style="width:50px;height:30px;border-radius:15px;border:none;background:{{ eqSwitchBg }};padding:0;position:relative;cursor:pointer;transition:background .2s;">
+                  <div style="position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:12px;background:#fff;transform:{{ eqKnobX }};transition:transform .2s;"></div>
+                </button>
+              </div>
+              <div style="position:relative;height:110px;border-radius:14px;background:#111114;overflow:hidden;">
+                <svg width="310" height="110" viewBox="0 0 310 110" style="position:absolute;left:0;top:0;">
+                  <path d="M0 55 L310 55" stroke="#2a2a30" stroke-width="1" stroke-dasharray="3 4"></path>
+                  <path d="{{ curveFill }}" fill="oklch({{ accL }} {{ accC }} {{ accH }} / .14)"></path>
+                  <path d="{{ bassD }}" fill="none" stroke="rgba(255,255,255,.35)" stroke-width="1.5" stroke-dasharray="4 4"></path>
+                  <path d="{{ curveD }}" fill="none" stroke="oklch({{ accL }} {{ accC }} {{ accH }})" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></path>
+                </svg>
+                <div style="position:absolute;left:8px;bottom:6px;font-family:'JetBrains Mono',monospace;font-size:9px;color:#5f5e66;">20 Hz</div>
+                <div style="position:absolute;right:8px;bottom:6px;font-family:'JetBrains Mono',monospace;font-size:9px;color:#5f5e66;">20 kHz</div>
+                <div style="position:absolute;left:8px;top:6px;font-family:'JetBrains Mono',monospace;font-size:9px;color:rgba(255,255,255,.45);">- - graves</div>
+              </div>
+              <div style="display:flex;gap:8px;overflow-x:auto;margin:0 -16px;padding:0 16px;">
+                <sc-for list="{{ presetsView }}" as="pr" hint-placeholder-count="6">
+                  <button onClick="{{ pr.onClick }}" style="flex:none;height:32px;padding:0 14px;border-radius:16px;border:1px solid {{ pr.border }};background:{{ pr.bg }};color:{{ pr.color }};font-family:'Sora',sans-serif;font-size:13px;font-weight:600;cursor:pointer;">{{ pr.name }}</button>
+                </sc-for>
+              </div>
+              <div style="display:flex;justify-content:space-between;opacity:{{ eqOpacity }};transition:opacity .2s;">
+                <sc-for list="{{ bandsView }}" as="b" hint-placeholder-count="10">
+                  <div style="width:28px;display:flex;flex-direction:column;align-items:center;gap:6px;">
+                    <div style="font-family:'JetBrains Mono',monospace;font-size:9.5px;color:{{ b.valColor }};height:12px;">{{ b.val }}</div>
+                    <div onPointerDown="{{ b.onDown }}" style="width:28px;height:150px;position:relative;touch-action:none;cursor:ns-resize;">
+                      <div style="position:absolute;left:12px;top:0;bottom:0;width:4px;border-radius:2px;background:#26262c;"></div>
+                      <div style="position:absolute;left:8px;width:12px;top:50%;height:1px;background:#3a3a42;"></div>
+                      <div style="position:absolute;left:12px;width:4px;border-radius:2px;top:{{ b.fillTop }};height:{{ b.fillH }};background:oklch({{ accL }} {{ accC }} {{ accH }});"></div>
+                      <div style="position:absolute;left:5px;top:{{ b.thumbTop }};width:18px;height:18px;margin-top:-9px;border-radius:9px;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.5);"></div>
+                    </div>
+                    <div style="font-family:'JetBrains Mono',monospace;font-size:9.5px;color:#8d8c93;">{{ b.label }}</div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- AJUSTES -->
+        <div style="position:absolute;inset:0;z-index:38;border-radius:48px;overflow:hidden;background:{{ bg }};transform:{{ settingsTransform }};transition:transform .42s cubic-bezier(.2,.85,.25,1);display:flex;flex-direction:column;">
+          <div style="height:54px;flex:none;"></div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 20px 10px;">
+            <button onClick="{{ closeSettings }}" style="width:40px;height:40px;border-radius:20px;border:none;background:rgba(255,255,255,.08);color:#f2f1ee;display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg>
+            </button>
+            <div style="font-size:17px;font-weight:700;">Ajustes</div>
+            <div style="width:40px;"></div>
+          </div>
+          <div style="flex:1;overflow-y:auto;padding:4px 20px 48px;display:flex;flex-direction:column;gap:22px;">
+            <div style="display:flex;align-items:center;gap:14px;padding:4px 2px;">
+              <div style="width:58px;height:58px;border-radius:16px;background:oklch({{ accL }} {{ accC }} {{ accH }});color:#140c05;display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:800;letter-spacing:-.04em;flex:none;">S</div>
+              <div style="display:flex;flex-direction:column;gap:2px;">
+                <div style="font-size:19px;font-weight:800;">SoundFast</div>
+                <div style="font-size:12px;color:#8d8c93;">{{ libStats }}</div>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:8px;">
+              <div style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.14em;color:#8d8c93;padding-left:4px;">APARIENCIA</div>
+              <div style="border-radius:18px;background:{{ surf }};border:1px solid #232328;padding:16px;display:flex;flex-direction:column;gap:18px;">
+                <div style="display:flex;flex-direction:column;gap:10px;">
+                  <div style="display:flex;justify-content:space-between;align-items:baseline;"><div style="font-size:15px;font-weight:500;">Color de acento</div><div style="font-size:13px;color:#8d8c93;">{{ accName }}</div></div>
+                  <div style="display:flex;justify-content:space-between;">
+                    <sc-for list="{{ accentView }}" as="sw" hint-placeholder-count="8">
+                      <button onClick="{{ sw.onClick }}" style="width:32px;height:32px;border-radius:16px;border:none;padding:0;cursor:pointer;background:{{ sw.color }};box-shadow:{{ sw.ring }};"></button>
+                    </sc-for>
+                  </div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:10px;">
+                  <div style="font-size:15px;font-weight:500;">Tema</div>
+                  <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;">
+                    <sc-for list="{{ themeView }}" as="th" hint-placeholder-count="4">
+                      <button onClick="{{ th.onClick }}" style="height:70px;border-radius:12px;border:2px solid {{ th.border }};background:{{ th.bg }};padding:8px;cursor:pointer;display:flex;flex-direction:column;justify-content:space-between;align-items:flex-start;">
+                        <div style="width:100%;height:14px;border-radius:4px;background:{{ th.surf }};"></div>
+                        <div style="font-family:'Sora',sans-serif;font-size:11px;font-weight:600;color:#e6e5e9;">{{ th.name }}</div>
+                      </button>
+                    </sc-for>
+                  </div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:10px;">
+                  <div style="font-size:15px;font-weight:500;">Fondo al reproducir</div>
+                  <div style="display:flex;gap:8px;">
+                    <sc-for list="{{ npBgView }}" as="c" hint-placeholder-count="3">
+                      <button onClick="{{ c.onClick }}" style="flex:1;height:36px;border-radius:10px;border:1px solid {{ c.border }};background:{{ c.bg }};color:{{ c.color }};font-family:'Sora',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">{{ c.label }}</button>
+                    </sc-for>
+                  </div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:10px;">
+                  <div style="font-size:15px;font-weight:500;">Forma de la portada</div>
+                  <div style="display:flex;gap:8px;">
+                    <sc-for list="{{ shapeView }}" as="c" hint-placeholder-count="3">
+                      <button onClick="{{ c.onClick }}" style="flex:1;height:40px;border-radius:10px;border:1px solid {{ c.border }};background:{{ c.bg }};color:{{ c.color }};font-family:'Sora',sans-serif;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">
+                        <div style="width:16px;height:16px;border-radius:{{ c.radius }};background:currentColor;"></div>{{ c.label }}
+                      </button>
+                    </sc-for>
+                  </div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:10px;">
+                  <div style="font-size:15px;font-weight:500;">Botón de reproducir</div>
+                  <div style="display:flex;gap:8px;">
+                    <sc-for list="{{ playShapeView }}" as="c" hint-placeholder-count="2">
+                      <button onClick="{{ c.onClick }}" style="flex:1;height:40px;border-radius:10px;border:1px solid {{ c.border }};background:{{ c.bg }};color:{{ c.color }};font-family:'Sora',sans-serif;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">
+                        <div style="width:16px;height:16px;border-radius:{{ c.radius }};background:currentColor;"></div>{{ c.label }}
+                      </button>
+                    </sc-for>
+                  </div>
+                </div>
+                <button onClick="{{ resetLook }}" style="align-self:flex-start;border:none;background:transparent;padding:0;color:oklch({{ accL }} {{ accC }} {{ accH }});font-family:'Sora',sans-serif;font-size:14px;font-weight:600;cursor:pointer;">Restablecer apariencia</button>
+              </div>
+            </div>
+            <sc-for list="{{ settingsView }}" as="sec" hint-placeholder-count="6">
+              <div style="display:flex;flex-direction:column;gap:8px;">
+                <div style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.14em;color:#8d8c93;padding-left:4px;">{{ sec.title }}</div>
+                <div style="border-radius:18px;background:{{ surf }};border:1px solid #232328;overflow:hidden;">
+                  <sc-for list="{{ sec.rows }}" as="row" hint-placeholder-count="3">
+                    <div onClick="{{ row.onClick }}" style="min-height:52px;display:flex;align-items:center;gap:12px;padding:10px 16px;border-top:1px solid {{ row.divider }};cursor:{{ row.cursor }};" style-hover="background:rgba(255,255,255,.045);">
+                      <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;">
+                        <div style="font-size:15px;font-weight:500;color:{{ row.labelColor }};">{{ row.label }}</div>
+                        <sc-if value="{{ row.hasSub }}" hint-placeholder-val="{{ false }}">
+                          <div style="font-size:12px;color:#8d8c93;text-wrap:pretty;">{{ row.sub }}</div>
+                        </sc-if>
+                        <sc-if value="{{ row.isSlider }}" hint-placeholder-val="{{ false }}">
+                          <div onPointerDown="{{ row.onDown }}" style="height:28px;display:flex;align-items:center;touch-action:none;cursor:pointer;margin-top:2px;">
+                            <div style="flex:1;height:5px;border-radius:3px;background:#2a2a30;position:relative;">
+                              <div style="position:absolute;left:0;top:0;bottom:0;width:{{ row.pct }};border-radius:3px;background:oklch({{ accL }} {{ accC }} {{ accH }});"></div>
+                              <div style="position:absolute;top:50%;left:{{ row.pct }};width:20px;height:20px;margin:-10px 0 0 -10px;border-radius:10px;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.5);"></div>
+                            </div>
+                          </div>
+                        </sc-if>
+                      </div>
+                      <sc-if value="{{ row.showVal }}" hint-placeholder-val="{{ false }}">
+                        <div style="font-size:14px;color:#8d8c93;font-family:{{ row.valFont }};flex:none;">{{ row.value }}</div>
+                      </sc-if>
+                      <sc-if value="{{ row.chev }}" hint-placeholder-val="{{ false }}">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5a5a62" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg>
+                      </sc-if>
+                      <sc-if value="{{ row.isToggle }}" hint-placeholder-val="{{ false }}">
+                        <div style="width:50px;height:30px;border-radius:15px;background:{{ row.toggleBg }};position:relative;flex:none;transition:background .2s;">
+                          <div style="position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:12px;background:#fff;transform:{{ row.knobX }};transition:transform .2s;"></div>
+                        </div>
+                      </sc-if>
+                      <sc-if value="{{ row.isSeg }}" hint-placeholder-val="{{ false }}">
+                        <div style="display:flex;padding:3px;border-radius:10px;background:#0f0f12;border:1px solid #2a2a30;flex:none;">
+                          <button onClick="{{ row.onA }}" style="height:28px;padding:0 12px;border-radius:7px;border:none;background:{{ row.aBg }};color:{{ row.aC }};font-family:'Sora',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Onda</button>
+                          <button onClick="{{ row.onB }}" style="height:28px;padding:0 12px;border-radius:7px;border:none;background:{{ row.bBg }};color:{{ row.bC }};font-family:'Sora',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Línea</button>
+                        </div>
+                      </sc-if>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-for>
+            <div style="text-align:center;font-size:12px;color:#5f5e66;padding-top:4px;">SoundFast · Hecho para iPhone</div>
+          </div>
+        </div>
+
+        <!-- HOJAS -->
+        <sc-if value="{{ anySheet }}" hint-placeholder-val="{{ false }}">
+          <div onClick="{{ closeSheet }}" style="position:absolute;inset:0;background:rgba(0,0,0,.55);z-index:55;"></div>
+        </sc-if>
+        <sc-if value="{{ sheetQueue }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;left:0;right:0;bottom:0;height:74%;z-index:56;border-radius:30px 30px 0 0;background:{{ surf }};border-top:1px solid #26262b;display:flex;flex-direction:column;">
+            <div style="width:40px;height:5px;border-radius:3px;background:rgba(255,255,255,.2);align-self:center;margin-top:8px;"></div>
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;padding:12px 20px 10px;">
+              <div style="display:flex;flex-direction:column;gap:2px;">
+                <div style="font-size:20px;font-weight:800;">A continuación</div>
+                <div style="font-size:12px;color:#8d8c93;">Desde {{ ctxName }} · {{ queueCount }}</div>
+              </div>
+              <button onClick="{{ closeSheet }}" style="border:none;background:transparent;color:oklch({{ accL }} {{ accC }} {{ accH }});font-family:'Sora',sans-serif;font-size:15px;font-weight:700;cursor:pointer;padding:4px 0;">Listo</button>
+            </div>
+            <div style="margin:0 12px 6px;height:60px;border-radius:14px;background:rgba(255,255,255,.05);display:flex;align-items:center;gap:12px;padding:0 10px;">
+              <div style="width:44px;height:44px;border-radius:9px;background:{{ curArtBg }};color:{{ curLetterColor }};display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;flex:none;">{{ curLetter }}</div>
+              <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;">
+                <div style="font-size:14px;font-weight:600;color:oklch({{ accL }} {{ accC }} {{ accH }});white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ curTitle }}</div>
+                <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.1em;color:#8d8c93;">SONANDO AHORA</div>
+              </div>
+            </div>
+            <div style="flex:1;overflow-y:auto;padding:0 0 40px;">
+              <sc-for list="{{ queueView }}" as="qi" hint-placeholder-count="6">
+                <div style="height:60px;display:flex;align-items:center;gap:12px;padding:0 8px 0 22px;background:{{ qi.bg }};transform:{{ qi.transform }};position:relative;z-index:{{ qi.z }};box-shadow:{{ qi.shadow }};">
+                  <div onClick="{{ qi.onClick }}" style="flex:1;min-width:0;display:flex;align-items:center;gap:12px;cursor:pointer;">
+                    <div style="width:44px;height:44px;border-radius:9px;background:{{ qi.artBg }};color:{{ qi.letterColor }};display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;flex:none;">{{ qi.letter }}</div>
+                    <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;">
+                      <div style="font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ qi.title }}</div>
+                      <div style="font-size:12px;color:#8d8c93;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ qi.artist }}</div>
+                    </div>
+                  </div>
+                  <button onClick="{{ qi.onRemove }}" style="width:34px;height:40px;border:none;background:transparent;color:#6f6e75;display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+                  </button>
+                  <div onPointerDown="{{ qi.onHandleDown }}" style="width:40px;height:52px;display:flex;align-items:center;justify-content:center;color:#8d8c93;cursor:grab;touch-action:none;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 9h14M5 15h14"></path></svg>
+                  </div>
+                </div>
+              </sc-for>
+              <sc-if value="{{ queueEmpty }}" hint-placeholder-val="{{ false }}">
+                <div style="padding:36px 20px;text-align:center;font-size:14px;color:#8d8c93;">No hay más canciones en la cola</div>
+              </sc-if>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ sheetAddTo }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;left:0;right:0;bottom:0;height:62%;z-index:56;border-radius:30px 30px 0 0;background:{{ surf }};border-top:1px solid #26262b;display:flex;flex-direction:column;">
+            <div style="width:40px;height:5px;border-radius:3px;background:rgba(255,255,255,.2);align-self:center;margin-top:8px;"></div>
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;padding:12px 20px 8px;">
+              <div style="display:flex;flex-direction:column;gap:2px;min-width:0;">
+                <div style="font-size:20px;font-weight:800;">Añadir a una lista</div>
+                <div style="font-size:12px;color:#8d8c93;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ curTitle }} · {{ curArtist }}</div>
+              </div>
+              <button onClick="{{ closeSheet }}" style="border:none;background:transparent;color:oklch({{ accL }} {{ accC }} {{ accH }});font-family:'Sora',sans-serif;font-size:15px;font-weight:700;cursor:pointer;padding:4px 0;">Listo</button>
+            </div>
+            <div style="flex:1;overflow-y:auto;padding-bottom:40px;">
+              <div onClick="{{ openNewListWithSong }}" style="height:64px;display:flex;align-items:center;gap:14px;padding:0 20px;cursor:pointer;" style-hover="background:rgba(255,255,255,.045);">
+                <div style="width:48px;height:48px;border-radius:10px;border:1.5px dashed #3a3a42;display:flex;align-items:center;justify-content:center;color:oklch({{ accL }} {{ accC }} {{ accH }});">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>
+                </div>
+                <div style="font-size:15px;font-weight:600;color:oklch({{ accL }} {{ accC }} {{ accH }});">Nueva lista</div>
+              </div>
+              <sc-for list="{{ addView }}" as="ap" hint-placeholder-count="2">
+                <div onClick="{{ ap.onClick }}" style="height:64px;display:flex;align-items:center;gap:14px;padding:0 20px;cursor:pointer;" style-hover="background:rgba(255,255,255,.045);">
+                  <div style="width:48px;height:48px;flex:none;border-radius:10px;background:{{ ap.bg }};color:{{ ap.fg }};display:flex;align-items:center;justify-content:center;font-weight:800;font-size:19px;">{{ ap.letter }}</div>
+                  <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;">
+                    <div style="font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ ap.name }}</div>
+                    <div style="font-size:12px;color:#8d8c93;">{{ ap.count }}</div>
+                  </div>
+                  <div style="width:26px;height:26px;border-radius:13px;border:2px solid {{ ap.ring }};background:{{ ap.fill }};display:flex;align-items:center;justify-content:center;color:#140c05;">
+                    <sc-if value="{{ ap.checked }}" hint-placeholder-val="{{ false }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"></path></svg></sc-if>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ sheetPicker }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;left:0;right:0;bottom:0;height:88%;z-index:56;border-radius:30px 30px 0 0;background:{{ surf }};border-top:1px solid #26262b;display:flex;flex-direction:column;">
+            <div style="width:40px;height:5px;border-radius:3px;background:rgba(255,255,255,.2);align-self:center;margin-top:8px;"></div>
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;padding:12px 20px 8px;gap:12px;">
+              <div style="display:flex;flex-direction:column;gap:2px;min-width:0;">
+                <div style="font-size:20px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Añadir a “{{ plName }}”</div>
+                <div style="font-size:12px;color:#8d8c93;">{{ pickCount }}</div>
+              </div>
+              <button onClick="{{ closeSheet }}" style="border:none;background:transparent;color:oklch({{ accL }} {{ accC }} {{ accH }});font-family:'Sora',sans-serif;font-size:15px;font-weight:700;cursor:pointer;padding:4px 0;flex:none;">Listo</button>
+            </div>
+            <div style="flex:1;overflow-y:auto;padding-bottom:40px;">
+              <sc-for list="{{ pickView }}" as="pk" hint-placeholder-count="8">
+                <div onClick="{{ pk.onClick }}" style="height:60px;display:flex;align-items:center;gap:14px;padding:0 20px;cursor:pointer;" style-hover="background:rgba(255,255,255,.045);">
+                  <div style="width:44px;height:44px;flex:none;border-radius:9px;background:{{ pk.artBg }};color:{{ pk.letterColor }};display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;">{{ pk.letter }}</div>
+                  <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;">
+                    <div style="font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ pk.title }}</div>
+                    <div style="font-size:12px;color:#8d8c93;">{{ pk.artist }}</div>
+                  </div>
+                  <div style="width:26px;height:26px;border-radius:13px;border:2px solid {{ pk.ring }};background:{{ pk.fill }};display:flex;align-items:center;justify-content:center;color:#140c05;">
+                    <sc-if value="{{ pk.checked }}" hint-placeholder-val="{{ false }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"></path></svg></sc-if>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- MODAL -->
+        <sc-if value="{{ hasModal }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;inset:0;z-index:58;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:0 40px;">
+            <div style="width:100%;border-radius:22px;background:{{ surf2 }};border:1px solid #2c2c33;padding:20px 18px 16px;display:flex;flex-direction:column;gap:14px;">
+              <div style="display:flex;flex-direction:column;gap:4px;">
+                <div style="font-size:18px;font-weight:800;">{{ modalTitle }}</div>
+                <div style="font-size:13px;color:#8d8c93;text-wrap:pretty;">{{ modalSub }}</div>
+              </div>
+              <sc-if value="{{ modalHasInput }}" hint-placeholder-val="{{ true }}">
+                <input autoFocus="{{ true }}" value="{{ modalValue }}" onChange="{{ onModalInput }}" onKeyDown="{{ onModalKey }}" placeholder="Ej. Para entrenar" style="height:46px;border-radius:12px;border:1px solid #34343c;background:#131316;color:#f2f1ee;padding:0 14px;font-family:'Sora',sans-serif;font-size:15px;outline:none;">
+              </sc-if>
+              <div style="display:flex;gap:10px;">
+                <button onClick="{{ closeModal }}" style="flex:1;height:44px;border-radius:12px;border:1px solid #34343c;background:transparent;color:#f2f1ee;font-family:'Sora',sans-serif;font-size:14px;font-weight:600;cursor:pointer;">Cancelar</button>
+                <button onClick="{{ modalOk }}" style="flex:1;height:44px;border-radius:12px;border:none;background:{{ modalOkBg }};color:{{ modalOkC }};font-family:'Sora',sans-serif;font-size:14px;font-weight:700;cursor:pointer;">{{ modalOkLabel }}</button>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- PRIMER INICIO / PERMISO -->
+        <sc-if value="{{ showOnboard }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;inset:0;z-index:62;background:{{ bg }};display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 36px;gap:18px;text-align:center;">
+            <div style="width:96px;height:96px;border-radius:26px;background:oklch({{ accL }} {{ accC }} {{ accH }});color:#140c05;display:flex;align-items:center;justify-content:center;font-size:52px;font-weight:800;letter-spacing:-.04em;">S</div>
+            <div style="display:flex;flex-direction:column;gap:8px;">
+              <div style="font-size:28px;font-weight:800;letter-spacing:-.02em;">{{ onbTitle }}</div>
+              <div style="font-size:15px;color:#8d8c93;line-height:1.45;text-wrap:pretty;">{{ onbText }}</div>
+            </div>
+            <button onClick="{{ onbAction }}" style="margin-top:8px;width:100%;height:52px;border-radius:16px;border:none;background:oklch({{ accL }} {{ accC }} {{ accH }});color:#140c05;font-family:'Sora',sans-serif;font-size:16px;font-weight:700;cursor:pointer;">{{ onbButton }}</button>
+            <sc-if value="{{ permAlert }}" hint-placeholder-val="{{ false }}">
+              <div style="position:absolute;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;">
+                <div style="width:272px;border-radius:16px;background:rgba(44,44,48,.97);overflow:hidden;text-align:center;">
+                  <div style="padding:18px 16px 16px;display:flex;flex-direction:column;gap:6px;">
+                    <div style="font-size:16px;font-weight:700;line-height:1.3;">“SoundFast” quiere acceder a Apple Music y a tu biblioteca multimedia</div>
+                    <div style="font-size:13px;color:#c9c8cd;line-height:1.35;">Lo usamos para mostrar, reproducir y organizar tus canciones.</div>
+                  </div>
+                  <div style="display:flex;border-top:1px solid rgba(255,255,255,.12);">
+                    <button onClick="{{ permDeny }}" style="flex:1;height:46px;border:none;border-right:1px solid rgba(255,255,255,.12);background:transparent;color:#4ea3ff;font-family:system-ui,sans-serif;font-size:16px;cursor:pointer;">No permitir</button>
+                    <button onClick="{{ permAllow }}" style="flex:1;height:46px;border:none;background:transparent;color:#4ea3ff;font-family:system-ui,sans-serif;font-size:16px;font-weight:700;cursor:pointer;">Permitir</button>
+                  </div>
+                </div>
+              </div>
+            </sc-if>
+          </div>
+        </sc-if>
+
+        <!-- PANTALLA DE BLOQUEO -->
+        <sc-if value="{{ showLock }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;inset:0;z-index:70;background:{{ lockBg }};display:flex;flex-direction:column;align-items:center;padding:64px 16px 0;">
+            <div style="font-size:18px;font-weight:600;color:rgba(255,255,255,.85);">domingo, 27 de septiembre</div>
+            <div style="font-size:96px;font-weight:700;letter-spacing:-.03em;line-height:1;margin-top:4px;">9:41</div>
+            <div style="flex:1;"></div>
+            <sc-if value="{{ lockControls }}" hint-placeholder-val="{{ true }}">
+            <div style="margin-bottom:24px;width:100%;border-radius:26px;background:rgba(255,255,255,.13);padding:16px;display:flex;flex-direction:column;gap:12px;">
+              <div style="display:flex;align-items:center;gap:12px;">
+                <div style="width:54px;height:54px;border-radius:12px;background:{{ curArtBg }};color:{{ curLetterColor }};display:flex;align-items:center;justify-content:center;font-weight:800;font-size:22px;flex:none;">{{ curLetter }}</div>
+                <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;">
+                  <div style="font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ curTitleOr }}</div>
+                  <div style="font-size:13px;color:rgba(255,255,255,.7);">{{ curArtist }}</div>
+                </div>
+                <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;color:rgba(255,255,255,.6);">SOUNDFAST</div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:4px;">
+                <div style="height:5px;border-radius:3px;background:rgba(255,255,255,.22);"><div style="height:100%;width:{{ pctStr }};border-radius:3px;background:#fff;"></div></div>
+                <div style="display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:11px;color:rgba(255,255,255,.7);"><span>{{ posLabel }}</span><span>{{ remLabel }}</span></div>
+              </div>
+              <div style="display:flex;justify-content:center;align-items:center;gap:44px;">
+                <button onClick="{{ prev }}" style="border:none;background:transparent;color:#fff;padding:0;cursor:pointer;display:flex;"><svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor"><path d="M19 5v14L9 12z"></path><rect x="4.9" y="5" width="2.6" height="14" rx="1"></rect></svg></button>
+                <button onClick="{{ togglePlay }}" style="border:none;background:transparent;color:#fff;padding:0;cursor:pointer;display:flex;">
+                  <sc-if value="{{ isPlaying }}" hint-placeholder-val="{{ false }}"><svg width="40" height="40" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="4" width="5" height="16" rx="1.2"></rect><rect x="14" y="4" width="5" height="16" rx="1.2"></rect></svg></sc-if>
+                  <sc-if value="{{ isPaused }}" hint-placeholder-val="{{ true }}"><svg width="40" height="40" viewBox="0 0 24 24" fill="currentColor"><path d="M6 3.5v17l15-8.5z"></path></svg></sc-if>
+                </button>
+                <button onClick="{{ next }}" style="border:none;background:transparent;color:#fff;padding:0;cursor:pointer;display:flex;"><svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor"><path d="M5 5v14l10-7z"></path><rect x="16.5" y="5" width="2.6" height="14" rx="1"></rect></svg></button>
+              </div>
+            </div>
+            </sc-if>
+            <button onClick="{{ toApp }}" style="margin-bottom:26px;border:none;background:transparent;color:rgba(255,255,255,.75);font-family:'Sora',sans-serif;font-size:13px;font-weight:600;cursor:pointer;">Desliza hacia arriba para abrir</button>
+          </div>
+        </sc-if>
+
+        <!-- CENTRO DE CONTROL -->
+        <sc-if value="{{ showCC }}" hint-placeholder-val="{{ false }}">
+          <div onClick="{{ toApp }}" style="position:absolute;inset:0;z-index:70;background:rgba(8,8,10,.78);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);padding:84px 24px 0;display:flex;flex-direction:column;gap:14px;">
+            <div style="display:flex;gap:14px;">
+              <div onClick="{{ stop }}" style="width:196px;height:196px;border-radius:30px;background:rgba(255,255,255,.12);padding:16px;display:flex;flex-direction:column;justify-content:space-between;">
+                <div style="display:flex;gap:10px;align-items:center;">
+                  <div style="width:44px;height:44px;border-radius:10px;background:{{ curArtBg }};color:{{ curLetterColor }};display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;flex:none;">{{ curLetter }}</div>
+                  <div style="min-width:0;display:flex;flex-direction:column;gap:1px;">
+                    <div style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ curTitleOr }}</div>
+                    <div style="font-size:12px;color:rgba(255,255,255,.65);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ curArtist }}</div>
+                  </div>
+                </div>
+                <div style="height:4px;border-radius:2px;background:rgba(255,255,255,.22);"><div style="height:100%;width:{{ pctStr }};border-radius:2px;background:#fff;"></div></div>
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:0 6px;">
+                  <button onClick="{{ prev }}" style="border:none;background:transparent;color:#fff;padding:0;cursor:pointer;display:flex;"><svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M19 5v14L9 12z"></path><rect x="4.9" y="5" width="2.6" height="14" rx="1"></rect></svg></button>
+                  <button onClick="{{ togglePlay }}" style="border:none;background:transparent;color:#fff;padding:0;cursor:pointer;display:flex;">
+                    <sc-if value="{{ isPlaying }}" hint-placeholder-val="{{ false }}"><svg width="34" height="34" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="4" width="5" height="16" rx="1.2"></rect><rect x="14" y="4" width="5" height="16" rx="1.2"></rect></svg></sc-if>
+                    <sc-if value="{{ isPaused }}" hint-placeholder-val="{{ true }}"><svg width="34" height="34" viewBox="0 0 24 24" fill="currentColor"><path d="M6 3.5v17l15-8.5z"></path></svg></sc-if>
+                  </button>
+                  <button onClick="{{ next }}" style="border:none;background:transparent;color:#fff;padding:0;cursor:pointer;display:flex;"><svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M5 5v14l10-7z"></path><rect x="16.5" y="5" width="2.6" height="14" rx="1"></rect></svg></button>
+                </div>
+              </div>
+              <div onClick="{{ stop }}" onPointerDown="{{ onVolDown }}" style="width:82px;height:196px;border-radius:30px;background:rgba(255,255,255,.12);position:relative;overflow:hidden;touch-action:none;cursor:ns-resize;">
+                <div style="position:absolute;left:0;right:0;bottom:0;height:{{ volPct }};background:#f2f1ee;"></div>
+                <div style="position:absolute;left:0;right:0;bottom:16px;display:flex;justify-content:center;color:{{ volIconC }};">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M4 9h4l5-4v14l-5-4H4z"></path><path d="M16 9a4 4 0 0 1 0 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg>
+                </div>
+              </div>
+            </div>
+            <div style="font-size:12px;color:rgba(255,255,255,.5);text-align:center;margin-top:6px;">Toca fuera para cerrar</div>
+          </div>
+        </sc-if>
+
+        <div style="position:absolute;top:0;left:0;right:0;height:54px;z-index:80;pointer-events:none;display:flex;align-items:center;justify-content:space-between;padding:4px 34px 0 42px;">
+          <div style="font-size:16px;font-weight:600;">{{ statusTime }}</div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <div style="display:flex;align-items:flex-end;gap:2px;height:12px;"><div style="width:3px;height:4px;background:#fff;border-radius:1px;"></div><div style="width:3px;height:6px;background:#fff;border-radius:1px;"></div><div style="width:3px;height:9px;background:#fff;border-radius:1px;"></div><div style="width:3px;height:12px;background:#fff;border-radius:1px;"></div></div>
+            <div style="width:25px;height:12px;border:1.5px solid rgba(255,255,255,.5);border-radius:4px;padding:1.5px;"><div style="width:75%;height:100%;background:#fff;border-radius:1.5px;"></div></div>
+          </div>
+        </div>
+        <div style="position:absolute;top:11px;left:50%;margin-left:-62px;width:124px;height:36px;border-radius:18px;background:#000;z-index:90;"></div>
+        <div style="position:absolute;bottom:8px;left:50%;margin-left:-67px;width:134px;height:5px;border-radius:3px;background:rgba(255,255,255,.85);z-index:90;pointer-events:none;"></div>
+      </div>
+    </div>
+  </div>
+
+  <div style="width:200px;display:flex;flex-direction:column;gap:10px;">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.14em;color:#6f6e75;">VISTAS DEL SISTEMA</div>
+    <sc-for list="{{ sysView }}" as="sv" hint-placeholder-count="4">
+      <button onClick="{{ sv.onClick }}" style="height:40px;border-radius:12px;border:1px solid {{ sv.border }};background:{{ sv.bg }};color:{{ sv.color }};font-family:'Sora',sans-serif;font-size:13px;font-weight:600;text-align:left;padding:0 14px;cursor:pointer;">{{ sv.label }}</button>
+    </sc-for>
+    <div style="font-size:12px;color:#6f6e75;line-height:1.5;text-wrap:pretty;margin-top:6px;">Simulan cómo se ve SoundFast fuera de la app: pantalla de bloqueo, Centro de Control y el primer inicio con la solicitud de permiso.</div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;seekStyle&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;onda&quot;,&quot;línea&quot;],&quot;default&quot;:&quot;onda&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  ACCENTS = [
+    { k: 'ambar', name: 'Ámbar', l: 0.76, c: 0.16, h: 55 }, { k: 'coral', name: 'Coral', l: 0.72, c: 0.17, h: 25 },
+    { k: 'rosa', name: 'Rosa', l: 0.74, c: 0.16, h: 350 }, { k: 'violeta', name: 'Violeta', l: 0.72, c: 0.15, h: 300 },
+    { k: 'azul', name: 'Azul', l: 0.72, c: 0.14, h: 250 }, { k: 'turquesa', name: 'Turquesa', l: 0.78, c: 0.12, h: 190 },
+    { k: 'lima', name: 'Lima', l: 0.84, c: 0.17, h: 130 }, { k: 'blanco', name: 'Blanco', l: 0.94, c: 0, h: 0 }
+  ];
+  THEMES = [
+    { k: 'oled', name: 'OLED', bg: '#000000', surf: '#111113', surf2: '#1a1a1d', tab: 'rgba(0,0,0,.94)' },
+    { k: 'grafito', name: 'Grafito', bg: '#0b0b0d', surf: '#16161a', surf2: '#1c1c21', tab: 'rgba(14,14,16,.94)' },
+    { k: 'noche', name: 'Noche', bg: 'oklch(0.16 0.03 262)', surf: 'oklch(0.21 0.035 262)', surf2: 'oklch(0.25 0.035 262)', tab: 'oklch(0.17 0.03 262 / .94)' },
+    { k: 'calido', name: 'Cálido', bg: 'oklch(0.16 0.012 60)', surf: 'oklch(0.21 0.016 60)', surf2: 'oklch(0.25 0.018 60)', tab: 'oklch(0.17 0.012 60 / .94)' }
+  ];
+  DEF_LOOK = { accent: 'ambar', theme: 'grafito', npBg: 'suave', artShape: 'redondeada', playShape: 'circulo' };
+  acc() { return this.ACCENTS.find(a => a.k === (this.state.look || {}).accent) || this.ACCENTS[0]; }
+  theme() { return this.THEMES.find(t => t.k === (this.state.look || {}).theme) || this.THEMES[1]; }
+  get A() { const a = this.acc(); return `oklch(${a.l} ${a.c} ${a.h})`; }
+  accA(al) { const a = this.acc(); return `oklch(${a.l} ${a.c} ${a.h} / ${al})`; }
+  LETTERS = 'ABCDEFGHIJKLMNÑOPQRSTUVWXYZ'.split('');
+  BANDS = [31, 62, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
+  BAND_LABELS = ['31', '62', '125', '250', '500', '1k', '2k', '4k', '8k', '16k'];
+  PRESETS = {
+    'Plano': [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    'Rock': [4, 3, 1, -1, -2, -1, 1, 3, 4, 4],
+    'Pop': [-1, 1, 3, 4, 3, 0, -1, -1, 1, 2],
+    'Electrónica': [5, 4, 1, 0, -2, 1, 0, 1, 4, 5],
+    'Vocal': [-2, -1, 0, 2, 4, 4, 3, 1, 0, -1],
+    'Acústica': [3, 2, 1, 1, 2, 2, 3, 2, 2, 1],
+    'Noche': [2, 1, 0, -1, -1, 0, -1, -3, -4, -5]
+  };
+  KEY = 'pulso-player-v2';
+  DEF_SETTINGS = { crossfade: 0, gapless: true, headphones: true, normalize: false, swipeArt: true, haptics: true, showAz: true, lockControls: true, cacheMB: 24 };
+  letterOf(t) { const c = t[0].toUpperCase(); return c === 'Ñ' ? c : c.normalize('NFD')[0]; }
+  songs = [
+    ['Neón en la avenida','Los Satélites',222],['Marea baja','Clara Ventura',245],['Frecuencia 88','Kilómetro Cero',198],
+    ['Ciudad de papel','Aurora Vélez',237],['Hielo y cobre','Motel Andrómeda',271],['Luz de sodio','Los Satélites',179],
+    ['Norte magnético','Bruma',312],['Vértigo lento','Clara Ventura',216],['Autopista 5','Kilómetro Cero',252],
+    ['Polaroid','Aurora Vélez',185],['Satélite roto','Motel Andrómeda',228],['Madrugada','Bruma',284],
+    ['Pulso','Delta Noir',202],['Café y estática','Los Satélites',191],['Siete mares','Clara Ventura',267],
+    ['Eclipse parcial','Delta Noir',234],['Fuego lento','Kilómetro Cero',209],['Horizonte','Bruma',303]
+  ].map((s, i) => ({ id: 's' + i, title: s[0], artist: s[1], dur: s[2], hue: (i * 47 + 20) % 360, letter: this.letterOf(s[0]) }))
+   .sort((a, b) => a.title.localeCompare(b.title, 'es'));
+  bars = {};
+  listRef = React.createRef();
+
+  state = (() => {
+    let d = {};
+    try { d = JSON.parse(localStorage.getItem('pulso-player-v2')) || {}; } catch (e) {}
+    return {
+      granted: !!d.granted, permStep: 'intro', system: 'app',
+      tab: 'songs', openList: null, query: '',
+      favs: d.favs || ['s0', 's6', 's12', 's4'],
+      playlists: d.playlists || [
+        { id: 'p1', name: 'Para manejar', songIds: ['s2', 's8', 's16', 's0'] },
+        { id: 'p2', name: 'Noche tranquila', songIds: ['s6', 's11', 's17', 's1'] }
+      ],
+      currentId: d.currentId || null, pos: d.pos || 0, playing: false,
+      shuffle: !!d.shuffle, repeat: d.repeat || 'off',
+      queue: d.queue || [], ctxIds: d.ctxIds || [], ctxName: d.ctxName || 'Todas las canciones',
+      npOpen: false, dragY: 0, dragging: false, scrub: null, scale: 1, artX: 0, artDragging: false, mSeek: null,
+      sheet: null, modal: null, soundOpen: false, qDrag: null, azLetter: null, vol: 0.65,
+      eqOn: d.eqOn ?? true, preset: d.preset || 'Plano', bands: d.bands || [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      bass: d.bass ?? 40, bassFreq: d.bassFreq || 60, treble: d.treble ?? 10,
+      settings: { crossfade: 0, gapless: true, headphones: true, normalize: false, swipeArt: true, haptics: true, showAz: true, lockControls: true, cacheMB: 24, ...(d.settings || {}) },
+      seekStyle: d.seekStyle || null, look: { accent: 'ambar', theme: 'grafito', npBg: 'suave', artShape: 'redondeada', playShape: 'circulo', ...(d.look || {}) }, settingsOpen: false, libRefreshed: false
+    };
+  })();
+
+  componentDidMount() {
+    this.timer = setInterval(this.tick, 250);
+    this.onResize();
+    window.addEventListener('resize', this.onResize);
+  }
+  componentWillUnmount() { clearInterval(this.timer); window.removeEventListener('resize', this.onResize); }
+  componentDidUpdate() {
+    const s = this.state;
+    const keep = ['granted', 'favs', 'playlists', 'currentId', 'pos', 'shuffle', 'repeat', 'queue', 'ctxIds', 'ctxName', 'eqOn', 'preset', 'bands', 'bass', 'bassFreq', 'treble', 'settings', 'seekStyle', 'look'];
+    const o = {}; keep.forEach(k => { o[k] = s[k]; });
+    try { localStorage.setItem(this.KEY, JSON.stringify(o)); } catch (e) {}
+  }
+  onResize = () => {
+    const side = window.innerWidth >= 700 ? 240 : 0;
+    const s = Math.min(1, (window.innerHeight - 48) / 844, (window.innerWidth - 32 - side) / 390);
+    this.setState({ scale: Math.max(0.35, s) });
+  };
+
+  get(id) { return this.songs.find(x => x.id === id); }
+  cur() { return this.get(this.state.currentId); }
+  fmt(t) { t = Math.max(0, Math.floor(t)); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); }
+  clamp(v, a, b) { return Math.min(b, Math.max(a, v)); }
+  buzz(ms) { if (this.state.settings && !this.state.settings.haptics) return; try { navigator.vibrate && navigator.vibrate(ms || 8); } catch (e) {} }
+  shuffleArr(a) { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+  artBg(h) { return `oklch(0.42 0.11 ${h})`; }
+  artFg(h) { return `oklch(0.86 0.09 ${h})`; }
+  drag(onMove, onUp) {
+    const mv = e => onMove(e);
+    const up = e => { window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up); onUp && onUp(e); };
+    window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up);
+  }
+
+  // Reproducción
+  q() { const s = this.state; return s.queue.includes(s.currentId) ? s.queue : this.songs.map(x => x.id); }
+  tick = () => {
+    const s = this.state;
+    if (!s.playing || !s.currentId || this.seeking || s.scrub) return;
+    const song = this.cur(); if (!song) return;
+    const p = s.pos + 0.25;
+    if (p >= song.dur) this.onEnd(); else this.setState({ pos: p });
+  };
+  onEnd() {
+    if (this.state.repeat === 'one') return this.setState({ pos: 0 });
+    const n = this.nextId(false);
+    if (n) this.setState({ currentId: n, pos: 0 }); else this.setState({ playing: false, pos: 0 });
+  }
+  nextId(manual) {
+    const q = this.q(), i = q.indexOf(this.state.currentId);
+    if (i < q.length - 1) return q[i + 1];
+    return (manual || this.state.repeat === 'all') ? q[0] : null;
+  }
+  playFrom(id, ids, name, forceShuffle) {
+    const sh = forceShuffle ?? this.state.shuffle;
+    const queue = sh ? [id, ...this.shuffleArr(ids.filter(x => x !== id))] : ids.slice();
+    this.setState({ queue, ctxIds: ids.slice(), ctxName: name, currentId: id, pos: 0, playing: true, npOpen: true, dragY: 0, shuffle: sh });
+    this.buzz();
+  }
+  next = () => { if (!this.state.currentId) return; this.setState({ currentId: this.nextId(true), pos: 0 }); this.buzz(); };
+  prevTrack = () => {
+    const q = this.q(), i = q.indexOf(this.state.currentId);
+    this.setState({ currentId: q[(i - 1 + q.length) % q.length], pos: 0 }); this.buzz();
+  };
+  prev = () => { if (!this.state.currentId) return; if (this.state.pos > 3) this.setState({ pos: 0 }); else this.prevTrack(); };
+  togglePlay = () => { if (this.state.currentId) this.setState(s => ({ playing: !s.playing })); };
+  toggleShuffle = () => {
+    const s = this.state;
+    const ctx = s.ctxIds.length ? s.ctxIds : this.songs.map(x => x.id);
+    if (!s.shuffle) this.setState({ shuffle: true, queue: s.currentId ? [s.currentId, ...this.shuffleArr(ctx.filter(x => x !== s.currentId))] : this.shuffleArr(ctx) });
+    else this.setState({ shuffle: false, queue: ctx.slice() });
+    this.buzz();
+  };
+  toggleFav(id) {
+    this.setState(s => ({ favs: s.favs.includes(id) ? s.favs.filter(x => x !== id) : [...s.favs, id] }));
+    this.buzz(12);
+  }
+
+  // Gestos de la pantalla de reproducción
+  onPanelDown = (e) => {
+    if (e.target.closest('[data-nogesture]')) return;
+    this.g = { x: e.clientX, y: e.clientY, t: Date.now(), axis: null, onArt: this.state.settings.swipeArt && !!e.target.closest('[data-art]') };
+    this.drag(this.onPanelMove, this.onPanelUp);
+  };
+  onPanelMove = (e) => {
+    const g = this.g; if (!g) return;
+    const sc = this.state.scale || 1;
+    const dx = (e.clientX - g.x) / sc, dy = (e.clientY - g.y) / sc;
+    if (!g.axis) { if (Math.hypot(dx, dy) < 8) return; g.axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y'; }
+    if (g.axis === 'y') this.setState({ dragY: Math.max(0, dy), dragging: true });
+    else if (g.onArt) this.setState({ artX: dx, artDragging: true });
+  };
+  onPanelUp = () => {
+    const g = this.g; this.g = null;
+    if (!g || !g.axis) return;
+    if (g.axis === 'y') {
+      const dy = this.state.dragY, v = dy / Math.max(1, Date.now() - g.t);
+      this.setState({ npOpen: !(dy > 130 || (v > 0.6 && dy > 40)), dragY: 0, dragging: false });
+    } else if (g.onArt) {
+      const dx = this.state.artX;
+      if (dx < -80) this.swipeTo(-1); else if (dx > 80) this.swipeTo(1);
+      else this.setState({ artX: 0, artDragging: false });
+    }
+  };
+  swipeTo(dir) {
+    const out = dir < 0 ? -440 : 440;
+    this.setState({ artDragging: false, artX: out });
+    setTimeout(() => {
+      if (dir < 0) this.next(); else this.prevTrack();
+      this.setState({ artDragging: true, artX: -out });
+      requestAnimationFrame(() => requestAnimationFrame(() => this.setState({ artDragging: false, artX: 0 })));
+    }, 200);
+  }
+  onSeekDown = (e) => {
+    e.stopPropagation();
+    const el = e.currentTarget, song = this.cur(); if (!song) return;
+    const start = this.state.pos;
+    const set = (cx) => { const r = el.getBoundingClientRect(); const target = this.clamp((cx - r.left) / r.width, 0, 1) * (song.dur - 0.5); this.setState({ scrub: { target, delta: target - start } }); };
+    this.seeking = true; set(e.clientX);
+    this.drag(ev => set(ev.clientX), () => { this.seeking = false; if (this.state.scrub) { this.setState({ pos: this.state.scrub.target, scrub: null }); this.buzz(6); } });
+  };
+
+  // Minirreproductor
+  onMiniDown = (e) => {
+    if (e.target.closest('[data-nogesture]') || !this.cur()) return;
+    this.m = { x: e.clientX, y: e.clientY, start: this.state.pos, active: false, moved: false };
+    this.mTimer = setTimeout(() => this.miniActivate(), 280);
+    this.drag(this.onMiniMove, this.onMiniUp);
+  };
+  miniActivate() { if (!this.m) return; this.m.active = true; this.setState({ mSeek: { target: this.m.start } }); this.buzz(10); }
+  onMiniMove = (e) => {
+    const m = this.m; if (!m) return;
+    const sc = this.state.scale || 1, dx = (e.clientX - m.x) / sc, dy = (e.clientY - m.y) / sc;
+    if (!m.active) {
+      if (Math.hypot(dx, dy) < 8) return;
+      clearTimeout(this.mTimer); m.moved = true;
+      if (Math.abs(dx) > Math.abs(dy)) this.miniActivate(); else return;
+    }
+    const song = this.cur();
+    this.setState({ mSeek: { target: this.clamp(m.start + dx * song.dur / 342, 0, song.dur - 0.5) } });
+  };
+  onMiniUp = () => {
+    clearTimeout(this.mTimer);
+    const m = this.m; this.m = null;
+    if (!m) return;
+    if (m.active || m.moved) { this.suppressClick = true; setTimeout(() => { this.suppressClick = false; }, 120); }
+    if (m.active && this.state.mSeek) { this.setState({ pos: this.state.mSeek.target, mSeek: null }); this.buzz(6); }
+  };
+
+  // Índice A–Z
+  onAzDown = (e) => {
+    e.preventDefault();
+    const el = e.currentTarget;
+    const pick = (cy) => {
+      const r = el.getBoundingClientRect();
+      const i = this.clamp(Math.floor((cy - r.top) / r.height * 27), 0, 26);
+      const L = this.LETTERS[i];
+      if (L === this.state.azLetter) return;
+      this.buzz(4);
+      this.setState({ azLetter: L });
+      let idx = this.songs.findIndex(x => this.LETTERS.indexOf(x.letter) >= i);
+      if (idx < 0) idx = this.songs.length - 1;
+      if (this.listRef.current) this.listRef.current.scrollTop = idx * 64;
+    };
+    pick(e.clientY);
+    this.drag(ev => pick(ev.clientY), () => this.setState({ azLetter: null }));
+  };
+
+  // Cola
+  onQDown(j, e) {
+    e.stopPropagation(); e.preventDefault();
+    this.qd = { j, y: e.clientY };
+    this.setState({ qDrag: { j, off: 0 } });
+    this.drag(ev => {
+      const qd = this.qd, sc = this.state.scale || 1;
+      let dy = (ev.clientY - qd.y) / sc;
+      const q = this.q(), base = q.indexOf(this.state.currentId) + 1, n = q.length - base;
+      const steps = Math.round(dy / 60);
+      if (steps) {
+        const nj = this.clamp(qd.j + steps, 0, n - 1);
+        if (nj !== qd.j) {
+          const arr = q.slice(); const [it] = arr.splice(base + qd.j, 1); arr.splice(base + nj, 0, it);
+          qd.y += (nj - qd.j) * 60 * sc; dy = (ev.clientY - qd.y) / sc; qd.j = nj;
+          this.setState({ queue: arr }); this.buzz(4);
+        }
+      }
+      this.setState({ qDrag: { j: qd.j, off: dy } });
+    }, () => { this.qd = null; this.setState({ qDrag: null }); });
+  }
+
+  // Sonido
+  knob(key) {
+    return (e) => {
+      e.stopPropagation(); e.preventDefault();
+      const start = this.state[key], x = e.clientX, y = e.clientY;
+      let step = Math.round(start / 10);
+      this.drag(ev => {
+        const sc = this.state.scale || 1;
+        const d = ((ev.clientX - x) - (ev.clientY - y)) / sc;
+        const v = this.clamp(Math.round(start + d / 2.2), 0, 100);
+        if (Math.round(v / 10) !== step) { step = Math.round(v / 10); this.buzz(5); }
+        this.setState({ [key]: v });
+      });
+    };
+  }
+  onBandDown(i, e) {
+    e.preventDefault();
+    const el = e.currentTarget;
+    const set = (cy) => {
+      const r = el.getBoundingClientRect();
+      const v = this.clamp(Math.round((0.5 - (cy - r.top) / r.height) * 24), -12, 12);
+      if (v === this.state.bands[i]) return;
+      const bands = this.state.bands.slice(); bands[i] = v;
+      this.setState({ bands, preset: 'Personalizado', eqOn: true });
+    };
+    set(e.clientY);
+    this.drag(ev => set(ev.clientY));
+  }
+  onVolDown = (e) => {
+    e.stopPropagation();
+    const el = e.currentTarget;
+    const set = cy => { const r = el.getBoundingClientRect(); this.setState({ vol: this.clamp(1 - (cy - r.top) / r.height, 0, 1) }); };
+    set(e.clientY);
+    this.drag(ev => set(ev.clientY));
+  };
+  curve() {
+    const s = this.state, W = 310, H = 110, lf = Math.log10;
+    const b = this.BANDS, v = s.bands;
+    const bandG = f => {
+      if (!s.eqOn) return 0;
+      const x = lf(f);
+      if (x <= lf(b[0])) return v[0];
+      if (x >= lf(b[9])) return v[9];
+      for (let i = 0; i < 9; i++) {
+        const a = lf(b[i]), c = lf(b[i + 1]);
+        if (x <= c) { const t = (x - a) / (c - a), tt = (1 - Math.cos(t * Math.PI)) / 2; return v[i] + (v[i + 1] - v[i]) * tt; }
+      }
+      return 0;
+    };
+    const bassG = f => s.bass * 0.12 / (1 + Math.pow(f / s.bassFreq, 2));
+    const trebG = f => s.treble * 0.08 * (1 - 1 / (1 + Math.pow(f / 5000, 2)));
+    const Y = g => this.clamp(H / 2 - g / 24 * (H / 2 - 6), 3, H - 3).toFixed(1);
+    const all = [], bass = [];
+    for (let k = 0; k <= 80; k++) {
+      const x = (k / 80 * W).toFixed(1), f = Math.pow(10, lf(20) + (lf(20000) - lf(20)) * k / 80);
+      all.push(x + ' ' + Y(bandG(f) + bassG(f) + trebG(f)));
+      bass.push(x + ' ' + Y(bassG(f)));
+    }
+    const d = 'M' + all.join(' L');
+    return { curveD: d, curveFill: d + ` L${W} ${H} L0 ${H} Z`, bassD: 'M' + bass.join(' L') };
+  }
+
+  // Listas
+  openModal(m) { this.setState({ modal: m }); }
+  modalOk = () => {
+    const m = this.state.modal; if (!m) return;
+    if (m.kind === 'new') {
+      const id = 'p' + Date.now();
+      const name = m.value.trim() || 'Nueva lista';
+      this.setState(s => ({ playlists: [...s.playlists, { id, name, songIds: m.addSong ? [m.addSong] : [] }], modal: null }));
+    } else if (m.kind === 'rename') {
+      const name = m.value.trim(); if (!name) return;
+      this.setState(s => ({ playlists: s.playlists.map(p => p.id === s.openList ? { ...p, name } : p), modal: null }));
+    } else if (m.kind === 'delete') {
+      this.setState(s => ({ playlists: s.playlists.filter(p => p.id !== s.openList), openList: null, modal: null }));
+    }
+    this.buzz();
+  };
+  togglePl(plId, songId) {
+    this.setState(s => ({ playlists: s.playlists.map(p => p.id !== plId ? p : { ...p, songIds: p.songIds.includes(songId) ? p.songIds.filter(x => x !== songId) : [...p.songIds, songId] }) }));
+    this.buzz(6);
+  }
+
+  settingsView(style) {
+    const s = this.state, st = s.settings, A = this.A;
+    const set = (patch) => this.setState(x => ({ settings: { ...x.settings, ...patch } }));
+    const base = { hasSub: false, sub: '', isSlider: false, showVal: false, value: '', valFont: "'Sora',sans-serif", chev: false, isToggle: false, isSeg: false, labelColor: '#f2f1ee', cursor: 'pointer', onClick: () => {} };
+    const tg = (key, label, sub) => ({ ...base, label, sub: sub || '', hasSub: !!sub, isToggle: true, toggleBg: st[key] ? A : '#3a3a40', knobX: st[key] ? 'translateX(20px)' : 'none', onClick: () => { set({ [key]: !st[key] }); this.buzz(5); } });
+    const nav = (label, value, onClick, noChev) => ({ ...base, label, showVal: !!value, value: value || '', chev: !noChev, cursor: noChev ? 'default' : 'pointer', onClick: onClick || (() => {}) });
+    const act = (label, sub, onClick, danger) => ({ ...base, label, sub: sub || '', hasSub: !!sub, labelColor: danger ? 'oklch(0.7 0.18 25)' : A, onClick });
+    const sections = [
+      { title: 'REPRODUCCIÓN', rows: [
+        { ...base, label: 'Fundido entre canciones', isSlider: true, showVal: true, value: st.crossfade ? st.crossfade + ' s' : 'Apagado', valFont: "'JetBrains Mono',monospace", cursor: 'default', pct: (st.crossfade / 12 * 100) + '%',
+          onDown: (e) => { const el = e.currentTarget; const f = cx => { const r = el.getBoundingClientRect(); set({ crossfade: Math.round(this.clamp((cx - r.left) / r.width, 0, 1) * 12) }); }; f(e.clientX); this.drag(ev => f(ev.clientX)); } },
+        tg('gapless', 'Reproducción sin pausas', 'Para álbumes en vivo y mezclas continuas'),
+        tg('normalize', 'Normalizar volumen', 'Iguala el volumen entre canciones'),
+        tg('headphones', 'Reanudar al conectar auriculares')
+      ] },
+      { title: 'SONIDO', rows: [
+        nav('Ecualizador y graves', s.eqOn ? s.preset : 'Apagado', () => this.setState({ soundOpen: true })),
+        nav('Salida de audio', 'iPhone')
+      ] },
+      { title: 'GESTOS Y RESPUESTA', rows: [
+        tg('swipeArt', 'Deslizar portada para cambiar', 'Izquierda: siguiente · Derecha: anterior'),
+        tg('haptics', 'Vibración'),
+        { ...base, label: 'Barra de progreso', isSeg: true, cursor: 'default',
+          aBg: style === 'onda' ? A : 'transparent', aC: style === 'onda' ? '#140c05' : '#b9b8be', onA: () => this.setState({ seekStyle: 'onda' }),
+          bBg: style !== 'onda' ? A : 'transparent', bC: style !== 'onda' ? '#140c05' : '#b9b8be', onB: () => this.setState({ seekStyle: 'línea' }) }
+      ] },
+      { title: 'BIBLIOTECA', rows: [
+        nav('Ordenar canciones por', 'Título'),
+        tg('showAz', 'Índice A–Z'),
+        act('Actualizar biblioteca', s.libRefreshed ? 'Actualizada hace un momento' : 'Busca canciones nuevas en tu iPhone', () => { this.setState({ libRefreshed: true }); this.buzz(); })
+      ] },
+      { title: 'PANTALLA DE BLOQUEO', rows: [
+        tg('lockControls', 'Controles en pantalla de bloqueo', 'También en el Centro de Control')
+      ] },
+      { title: 'ALMACENAMIENTO', rows: [
+        nav('Caché de portadas', st.cacheMB ? st.cacheMB + ' MB' : '0 MB', null, true),
+        act('Borrar caché', '', () => { set({ cacheMB: 0 }); this.buzz(); }, true)
+      ] },
+      { title: 'ACERCA DE', rows: [
+        nav('Versión', '1.0.0 (1)', null, true),
+        nav('Privacidad'),
+        nav('Enviar comentarios')
+      ] }
+    ];
+    return sections.map(sec => ({ title: sec.title, rows: sec.rows.map((r, i) => ({ ...r, divider: i === 0 ? 'transparent' : '#232328' })) }));
+  }
+
+  renderVals() {
+    const s = this.state, A = this.A;
+    const ac = this.acc(), th = this.theme(), lk = s.look;
+    const setLook = (p) => { this.setState(x => ({ look: { ...x.look, ...p } })); this.buzz(5); };
+    const chip = (on, label, onClick) => ({ label, onClick, bg: on ? this.accA(.16) : 'transparent', border: on ? A : '#2e2e35', color: on ? A : '#b9b8be' });
+    const q = s.query.trim().toLowerCase();
+    const cur = this.cur();
+    const match = x => !q || x.title.toLowerCase().includes(q) || x.artist.toLowerCase().includes(q);
+    const pl = s.tab === 'lists' && s.openList ? s.playlists.find(p => p.id === s.openList) : null;
+
+    let viewSongs = [], ctxName = 'Todas las canciones';
+    if (s.tab === 'songs') viewSongs = this.songs.filter(match);
+    else if (s.tab === 'favs') { viewSongs = this.songs.filter(x => s.favs.includes(x.id) && match(x)); ctxName = 'Favoritos'; }
+    else if (pl) { viewSongs = pl.songIds.map(id => this.get(id)).filter(Boolean); ctxName = pl.name; }
+    const viewIds = viewSongs.map(x => x.id);
+
+    const eq = React.createElement('div', { style: { display: 'flex', gap: 2, alignItems: 'flex-end', height: 14 } },
+      [0, 1, 2].map(i => React.createElement('span', { key: i, style: { width: 3, height: 14, background: A, borderRadius: 1, transformOrigin: 'bottom',
+        animation: `eq ${0.5 + i * 0.17}s ease-in-out ${i * 0.12}s infinite alternate`, animationPlayState: s.playing ? 'running' : 'paused' } })));
+    const rows = viewSongs.map(x => {
+      const isCur = x.id === s.currentId;
+      return { title: x.title, artist: x.artist, dur: this.fmt(x.dur), letter: x.title[0], artBg: this.artBg(x.hue), letterColor: this.artFg(x.hue),
+        titleColor: isCur ? A : '#f2f1ee', rowBg: isCur ? 'rgba(255,255,255,.04)' : 'transparent', isCurrent: isCur, notCurrent: !isCur, eq: isCur ? eq : null,
+        showRemove: !!pl, padR: pl ? '8px' : (s.tab === 'songs' && !q && s.settings.showAz ? '30px' : '20px'),
+        onRemove: (e) => { e.stopPropagation(); this.togglePl(pl.id, x.id); },
+        onClick: () => this.playFrom(x.id, viewIds, ctxName) };
+    });
+    const presentLetters = new Set(this.songs.map(x => x.letter));
+    const total = this.songs.reduce((a, x) => a + x.dur, 0);
+
+    let headTitle = 'Canciones', headSub = `${this.songs.length} canciones · ${Math.round(total / 60)} min`;
+    if (s.tab === 'favs') { headTitle = 'Favoritos'; headSub = `${s.favs.length} ${s.favs.length === 1 ? 'canción' : 'canciones'}`; }
+    if (s.tab === 'lists') { headTitle = pl ? pl.name : 'Listas'; headSub = pl ? `${viewIds.length} canciones` : `${s.playlists.length} listas`; }
+
+    const dpos = s.scrub ? s.scrub.target : s.pos;
+    const frac = cur ? dpos / cur.dur : 0;
+    const bars = (() => {
+      if (!cur) return [];
+      if (!this.bars[cur.id]) {
+        const seed = cur.hue / 30;
+        this.bars[cur.id] = Array.from({ length: 60 }, (_, i) => Math.round(18 + 82 * Math.abs(Math.sin(i * 0.61 + seed) * Math.cos(i * 0.19 + seed * 1.7)) * (0.55 + 0.45 * Math.abs(Math.sin(i * 1.9 + seed)))));
+      }
+      return this.bars[cur.id].map((h, i) => ({ h: h + '%', bg: (i + 0.5) / 60 <= frac ? A : 'rgba(255,255,255,.16)' }));
+    })();
+    const dl = s.scrub ? s.scrub.delta : 0;
+    const t = Math.min(1, s.dragY / 600);
+    const style = s.seekStyle ?? this.props.seekStyle ?? 'onda';
+
+    const qArr = this.q(), qi = qArr.indexOf(s.currentId);
+    const upcoming = qi >= 0 ? qArr.slice(qi + 1) : [];
+    const queueView = upcoming.map((id, j) => {
+      const x = this.get(id); const dragging = s.qDrag && s.qDrag.j === j;
+      return { title: x.title, artist: x.artist, letter: x.title[0], artBg: this.artBg(x.hue), letterColor: this.artFg(x.hue),
+        bg: dragging ? '#232329' : 'transparent', transform: dragging ? `translateY(${s.qDrag.off}px) scale(1.02)` : 'none',
+        z: dragging ? 2 : 1, shadow: dragging ? '0 10px 24px rgba(0,0,0,.5)' : 'none',
+        onClick: () => { this.setState({ currentId: id, pos: 0, playing: true }); this.buzz(); },
+        onRemove: () => this.setState({ queue: qArr.filter(z => z !== id) }),
+        onHandleDown: (e) => this.onQDown(j, e) };
+    });
+
+    const bassV = s.bass / 100, trebV = s.treble / 100;
+    const presetNames = [...Object.keys(this.PRESETS), ...(s.preset === 'Personalizado' ? ['Personalizado'] : [])];
+    const bandsView = s.bands.map((v, i) => {
+      const pos = (12 - v) / 24 * 100;
+      return { label: this.BAND_LABELS[i], val: v === 0 ? '0' : (v > 0 ? '+' : '') + v, valColor: v === 0 ? '#5f5e66' : A,
+        thumbTop: pos + '%', fillTop: (v >= 0 ? pos : 50) + '%', fillH: Math.abs(pos - 50) + '%', onDown: (e) => this.onBandDown(i, e) };
+    });
+    const m = s.modal;
+    const modalMeta = !m ? {} : m.kind === 'new' ? { t: 'Nueva lista', sub: 'Ponle el nombre que quieras: un género, un ánimo, un momento.', ok: 'Crear', input: true }
+      : m.kind === 'rename' ? { t: 'Renombrar lista', sub: 'Escribe el nuevo nombre.', ok: 'Guardar', input: true }
+      : { t: `¿Eliminar “${pl ? pl.name : ''}”?`, sub: 'Las canciones seguirán en tu biblioteca.', ok: 'Eliminar', input: false, danger: true };
+    const plTile = p => { const f = this.get(p.songIds[0]); return { bg: f ? this.artBg(f.hue) : '#232329', fg: f ? this.artFg(f.hue) : '#8d8c93', letter: p.name[0] ? p.name[0].toUpperCase() : '·' }; };
+    const permDenied = s.permStep === 'denied';
+    const sys = [['app', 'App'], ['lock', 'Pantalla de bloqueo'], ['cc', 'Centro de Control'], ['onboard', 'Primer inicio']];
+
+    return {
+      wrapW: 390 * s.scale + 'px', wrapH: 844 * s.scale + 'px', phoneTransform: `scale(${s.scale})`,
+      statusTime: '9:41',
+      // biblioteca
+      headTitle, headSub, inPlaylist: !!pl, notInPlaylist: !pl,
+      titleClick: () => { if (pl) this.openModal({ kind: 'rename', value: pl.name }); }, titleCursor: pl ? 'pointer' : 'default',
+      openRename: () => pl && this.openModal({ kind: 'rename', value: pl.name }),
+      backToLists: () => this.setState({ openList: null }),
+      showSearch: s.tab !== 'lists', query: s.query, hasQuery: !!s.query,
+      onQuery: e => this.setState({ query: e.target.value }), clearQuery: () => this.setState({ query: '' }),
+      showActions: viewIds.length > 0 && (s.tab !== 'lists' || !!pl),
+      playAll: () => viewIds.length && this.playFrom(viewIds[0], viewIds, ctxName, false),
+      shuffleAll: () => viewIds.length && this.playFrom(viewIds[Math.floor(Math.random() * viewIds.length)], viewIds, ctxName, true),
+      rows, listRef: this.listRef,
+      showPlaylists: s.tab === 'lists' && !pl,
+      plView: s.playlists.map(p => ({ ...plTile(p), name: p.name, count: `${p.songIds.length} ${p.songIds.length === 1 ? 'canción' : 'canciones'}`, onClick: () => this.setState({ openList: p.id }) })),
+      openNewList: () => this.openModal({ kind: 'new', value: '' }),
+      noResults: !!q && rows.length === 0 && s.tab !== 'lists',
+      favEmpty: s.tab === 'favs' && !q && rows.length === 0,
+      plEmpty: !!pl && rows.length === 0,
+      askDelete: () => this.openModal({ kind: 'delete', value: '' }),
+      openPicker: () => this.setState({ sheet: 'picker' }),
+      showAz: s.tab === 'songs' && !q && s.settings.showAz,
+      azView: this.LETTERS.map(ch => ({ ch, color: ch === s.azLetter ? A : (presentLetters.has(ch) ? '#a9a8ae' : '#3c3c43') })),
+      onAzDown: this.onAzDown, azActive: !!s.azLetter, azLetter: s.azLetter || '',
+      tabSongs: () => this.setState({ tab: 'songs', openList: null }), tabFavs: () => this.setState({ tab: 'favs', openList: null }), tabLists: () => this.setState({ tab: 'lists' }),
+      tabSongsC: s.tab === 'songs' ? A : '#7a7980', tabFavsC: s.tab === 'favs' ? A : '#7a7980', tabListsC: s.tab === 'lists' ? A : '#7a7980',
+      // actual
+      hasCurrent: !!cur, isPlaying: s.playing, isPaused: !s.playing, ctxName: s.ctxName,
+      curTitle: cur ? cur.title : '', curTitleOr: cur ? cur.title : 'Nada reproduciéndose', curArtist: cur ? cur.artist : '', curLetter: cur ? cur.title[0] : '',
+      curArtBg: cur ? this.artBg(cur.hue) : '#2a2a30', curLetterColor: cur ? this.artFg(cur.hue) : '#8d8c93',
+      curIsFav: cur ? s.favs.includes(cur.id) : false, curNotFav: cur ? !s.favs.includes(cur.id) : true,
+      favColor: cur && s.favs.includes(cur.id) ? A : 'rgba(255,255,255,.75)',
+      toggleFavCur: () => cur && this.toggleFav(cur.id),
+      posLabel: this.fmt(dpos), remLabel: cur ? '-' + this.fmt(cur.dur - dpos) : '-0:00', durLabel: cur ? this.fmt(cur.dur) : '0:00',
+      pctStr: (frac * 100).toFixed(2) + '%',
+      deltaLabel: (dl >= 0 ? '+' : '−') + this.fmt(Math.abs(dl)) + (dl >= 0 ? '  ››' : '  ‹‹'), isScrubbing: !!s.scrub,
+      bars, waveStyle: style === 'onda', lineStyle: style !== 'onda',
+      // mini
+      openNp: () => { if (!this.suppressClick) this.setState({ npOpen: true, dragY: 0 }); },
+      onMiniDown: this.onMiniDown, miniSeeking: !!s.mSeek, miniIdle: !s.mSeek,
+      miniPct: cur ? ((s.mSeek ? s.mSeek.target : s.pos) / cur.dur * 100).toFixed(2) + '%' : '0%',
+      miniPosLabel: this.fmt(s.mSeek ? s.mSeek.target : s.pos), miniBarH: s.mSeek ? '6px' : '3px',
+      miniToggle: e => { e.stopPropagation(); this.togglePlay(); }, miniNext: e => { e.stopPropagation(); this.next(); },
+      // panel
+      closeNp: () => this.setState({ npOpen: false, dragY: 0 }),
+      artTransform: `translateX(${s.artX}px) rotate(${s.artX / 45}deg)`, artOpacity: Math.max(0, 1 - Math.abs(s.artX) / 520),
+      artTransition: s.artDragging ? 'none' : 'transform .22s cubic-bezier(.3,.7,.3,1), opacity .22s',
+      npBg: lk.npBg === 'tema' || !cur ? th.bg : lk.npBg === 'intenso' ? `oklch(0.3 0.09 ${cur.hue})` : `oklch(0.19 0.035 ${cur.hue})`,
+      npTransform: s.npOpen ? `translateY(${s.dragY}px)` : 'translateY(104%)',
+      npTransition: s.dragging ? 'background .6s' : 'transform .45s cubic-bezier(.2,.85,.25,1), background .6s',
+      libTransform: s.npOpen ? `scale(${0.93 + 0.07 * t})` : 'scale(1)',
+      libTransition: s.dragging ? 'none' : 'transform .45s cubic-bezier(.2,.85,.25,1), opacity .45s',
+      dimOpacity: s.npOpen ? 0.55 * (1 - t) : 0,
+      onPanelDown: this.onPanelDown, onSeekDown: this.onSeekDown,
+      togglePlay: this.togglePlay, next: this.next, prev: this.prev, toggleShuffle: this.toggleShuffle,
+      cycleRepeat: () => { this.setState(x => ({ repeat: x.repeat === 'off' ? 'all' : x.repeat === 'all' ? 'one' : 'off' })); this.buzz(); },
+      shuffleColor: s.shuffle ? A : 'rgba(255,255,255,.6)', shuffleDot: s.shuffle ? A : 'transparent',
+      repeatColor: s.repeat !== 'off' ? A : 'rgba(255,255,255,.6)', repeatDot: s.repeat !== 'off' ? A : 'transparent', repeatOne: s.repeat === 'one',
+      openAddTo: () => cur && this.setState({ sheet: 'addTo' }), openQueue: () => this.setState({ sheet: 'queue' }),
+      soundBtnC: (s.bass > 0 || s.treble > 0 || (s.eqOn && s.preset !== 'Plano')) ? A : 'rgba(255,255,255,.75)',
+      // hojas
+      anySheet: !!s.sheet, sheetQueue: s.sheet === 'queue', sheetAddTo: s.sheet === 'addTo', sheetPicker: s.sheet === 'picker' && !!pl,
+      closeSheet: () => this.setState({ sheet: null }),
+      queueView, queueEmpty: upcoming.length === 0, queueCount: `${upcoming.length} por sonar`,
+      addView: s.playlists.map(p => { const c = cur && p.songIds.includes(cur.id); return { ...plTile(p), name: p.name, count: `${p.songIds.length} canciones`, checked: !!c, ring: c ? A : '#4a4a52', fill: c ? A : 'transparent', onClick: () => cur && this.togglePl(p.id, cur.id) }; }),
+      openNewListWithSong: () => this.openModal({ kind: 'new', value: '', addSong: cur ? cur.id : null }),
+      plName: pl ? pl.name : '', pickCount: pl ? `${pl.songIds.length} seleccionadas` : '',
+      pickView: this.songs.map(x => { const c = pl && pl.songIds.includes(x.id); return { title: x.title, artist: x.artist, letter: x.title[0], artBg: this.artBg(x.hue), letterColor: this.artFg(x.hue), checked: !!c, ring: c ? A : '#4a4a52', fill: c ? A : 'transparent', onClick: () => pl && this.togglePl(pl.id, x.id) }; }),
+      // modal
+      hasModal: !!m, modalTitle: modalMeta.t || '', modalSub: modalMeta.sub || '', modalHasInput: !!modalMeta.input,
+      modalValue: m ? m.value : '', onModalInput: e => this.setState({ modal: { ...this.state.modal, value: e.target.value } }),
+      onModalKey: e => { if (e.key === 'Enter') this.modalOk(); },
+      modalOk: this.modalOk, closeModal: () => this.setState({ modal: null }), modalOkLabel: modalMeta.ok || '',
+      modalOkBg: modalMeta.danger ? 'oklch(0.62 0.2 25)' : A, modalOkC: modalMeta.danger ? '#fff' : '#140c05',
+      // sonido
+      openSound: () => this.setState({ soundOpen: true }), closeSound: () => this.setState({ soundOpen: false }),
+      soundTransform: s.soundOpen ? 'translateY(0)' : 'translateY(104%)',
+      resetSound: () => { this.setState({ bands: this.PRESETS['Plano'].slice(), preset: 'Plano', bass: 0, treble: 0, eqOn: true }); this.buzz(); },
+      onBassDown: this.knob('bass'), onTrebleDown: this.knob('treble'),
+      bassDash: `${(395.8 * bassV).toFixed(1)} 600`, bassRot: `rotate(${-135 + 270 * bassV} 100 100)`,
+      bassPct: s.bass + '%', bassDb: '+' + (s.bass * 0.12).toFixed(1) + ' dB',
+      trebleDash: `${(395.8 * trebV).toFixed(1)} 600`, trebleRot: `rotate(${-135 + 270 * trebV} 100 100)`, treblePct: s.treble + '%',
+      freqView: [40, 60, 80, 120].map(f => ({ label: f + ' Hz', bg: s.bassFreq === f ? this.accA(.16) : 'transparent', border: s.bassFreq === f ? A : '#2e2e35', color: s.bassFreq === f ? A : '#b9b8be', onClick: () => { this.setState({ bassFreq: f }); this.buzz(5); } })),
+      toggleEq: () => { this.setState(x => ({ eqOn: !x.eqOn })); this.buzz(); },
+      eqSwitchBg: s.eqOn ? A : '#3a3a40', eqKnobX: s.eqOn ? 'translateX(20px)' : 'translateX(0)', eqOpacity: s.eqOn ? 1 : 0.35,
+      ...this.curve(),
+      presetsView: presetNames.map(n => ({ name: n, bg: s.preset === n ? A : '#1e1e23', color: s.preset === n ? '#140c05' : '#d6d5da', border: s.preset === n ? A : '#2e2e35',
+        onClick: () => { if (n !== 'Personalizado') { this.setState({ preset: n, bands: this.PRESETS[n].slice(), eqOn: true }); this.buzz(5); } } })),
+      bandsView,
+      // sistema
+      showOnboard: !s.granted, permAlert: s.permStep === 'alert',
+      onbTitle: permDenied ? 'Sin acceso a tu música' : 'Tu música, a tu manera',
+      onbText: permDenied ? 'Para ver tus canciones, activa el acceso en Ajustes › SoundFast › Apple Music y biblioteca multimedia.' : 'SoundFast lee tu biblioteca para mostrar tus canciones, favoritos y listas, con ecualizador y graves a tu medida.',
+      onbButton: permDenied ? 'Abrir Ajustes' : 'Permitir acceso a Música',
+      onbAction: () => this.setState({ permStep: 'alert' }),
+      permAllow: () => { this.setState({ granted: true, permStep: 'intro', system: 'app' }); this.buzz(); },
+      permDeny: () => this.setState({ permStep: 'denied' }),
+      lockControls: s.settings.lockControls,
+      accL: ac.l, accL2: Math.min(0.96, ac.l + 0.05), accC: ac.c, accH: ac.h, accName: ac.name,
+      bg: th.bg, surf: th.surf, surf2: th.surf2, tabBg: th.tab,
+      artRadius: lk.artShape === 'cuadrada' ? '8px' : lk.artShape === 'circulo' ? '50%' : '28px',
+      playRadius: lk.playShape === 'cuadrado' ? '24px' : '40px',
+      accentView: this.ACCENTS.map(a => ({ color: `oklch(${a.l} ${a.c} ${a.h})`, ring: a.k === ac.k ? `0 0 0 3px ${th.surf}, 0 0 0 5px oklch(${a.l} ${a.c} ${a.h})` : 'none', onClick: () => setLook({ accent: a.k }) })),
+      themeView: this.THEMES.map(t => ({ name: t.name, bg: t.bg, surf: t.surf2, border: t.k === th.k ? A : '#2e2e35', onClick: () => setLook({ theme: t.k }) })),
+      npBgView: [['suave', 'Portada suave'], ['intenso', 'Intenso'], ['tema', 'Tema']].map(([k, label]) => chip(lk.npBg === k, label, () => setLook({ npBg: k }))),
+      shapeView: [['redondeada', 'Redonda', '5px'], ['cuadrada', 'Recta', '1px'], ['circulo', 'Disco', '50%']].map(([k, label, r]) => ({ ...chip(lk.artShape === k, label, () => setLook({ artShape: k })), radius: r })),
+      playShapeView: [['circulo', 'Círculo', '50%'], ['cuadrado', 'Cuadrado', '4px']].map(([k, label, r]) => ({ ...chip(lk.playShape === k, label, () => setLook({ playShape: k })), radius: r })),
+      resetLook: () => { this.setState({ look: { ...this.DEF_LOOK } }); this.buzz(); },
+      artHint: s.settings.swipeArt ? '‹‹ DESLIZA LA PORTADA PARA CAMBIAR ››' : '',
+      openSettings: () => this.setState({ settingsOpen: true }), closeSettings: () => this.setState({ settingsOpen: false }),
+      settingsTransform: s.settingsOpen ? 'translateY(0)' : 'translateY(104%)',
+      libStats: `${this.songs.length} canciones · ${s.playlists.length} listas · ${s.favs.length} favoritos`,
+      settingsView: this.settingsView(style),
+      showLock: s.granted && s.system === 'lock', showCC: s.granted && s.system === 'cc',
+      lockBg: cur ? `oklch(0.26 0.06 ${cur.hue})` : '#1b1b20',
+      toApp: () => this.setState({ system: 'app' }), stop: e => e.stopPropagation(),
+      onVolDown: this.onVolDown, volPct: (s.vol * 100).toFixed(0) + '%', volIconC: s.vol > 0.15 ? '#1a1a1d' : '#fff',
+      sysView: sys.map(([k, label]) => {
+        const on = k === 'onboard' ? !s.granted : (s.granted && s.system === k);
+        return { label, bg: on ? this.accA(.14) : '#121215', border: on ? A : '#26262b', color: on ? A : '#c9c8cd',
+          onClick: () => k === 'onboard' ? this.setState({ granted: false, permStep: 'intro', system: 'app' }) : this.setState({ granted: true, system: k }) };
+      })
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+# Generados por XcodeGen / xcodebuild en la máquina de compilación
+SoundFast.xcodeproj/
+SoundFast/Info.plist
+build/
+DerivedData/
+*.ipa
+.DS_Store
+xcuserdata/

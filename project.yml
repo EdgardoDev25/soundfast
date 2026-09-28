@@ -1,0 +1,49 @@
+# Definición del proyecto Xcode. No hay Mac: el .xcodeproj lo genera XcodeGen
+# en la máquina de compilación (GitHub Actions / Codemagic). No se versiona.
+name: SoundFast
+options:
+  bundleIdPrefix: com.edgardorocha
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    SF_BUILD_DATE: "local"
+
+targets:
+  SoundFast:
+    type: application
+    platform: iOS
+    sources:
+      - path: SoundFast
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.edgardorocha.soundfast
+        TARGETED_DEVICE_FAMILY: "1"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ENABLE_PREVIEWS: NO
+    info:
+      path: SoundFast/Info.plist
+      properties:
+        CFBundleDisplayName: SoundFast
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        SFBuildDate: $(SF_BUILD_DATE)
+        LSRequiresIPhoneOS: true
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UILaunchScreen:
+          UIColorName: LaunchBackground
+        UIBackgroundModes:
+          - audio
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        UIUserInterfaceStyle: Dark
+        UIStatusBarStyle: UIStatusBarStyleLightContent
+        ITSAppUsesNonExemptEncryption: false
+    scheme:
+      gatherCoverageData: false
