@@ -37,6 +37,16 @@ if ! xcodebuild \
   build >"$LOG" 2>&1; then
   echo "==> FALLÓ la compilación. Errores:" >&2
   grep -E "error:" "$LOG" | sort -u >&2 || true
+  if [ -n "${GITHUB_ACTIONS:-}" ]; then
+    # Anotaciones visibles en la página del run (y por la API sin iniciar sesión).
+    ROOT="$(pwd)/"
+    grep -E "^/.*:[0-9]+:[0-9]+: error: " "$LOG" | sort -u | head -n 50 | while IFS= read -r line; do
+      file="${line%%:*}"; rest="${line#*:}"
+      ln="${rest%%:*}"; rest="${rest#*:}"
+      col="${rest%%:*}"; msg="${rest#*: error: }"
+      echo "::error file=${file#$ROOT},line=$ln,col=$col::$msg"
+    done
+  fi
   echo "==> Últimas líneas del log:" >&2
   tail -n 40 "$LOG" >&2
   exit 1

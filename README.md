@@ -44,8 +44,19 @@ Límites del Apple ID gratis: 3 apps instaladas así a la vez y 10 App IDs por s
 
 ## Etapas
 
-1. ✅ Base: cadena compilar → firmar → instalar, más una prueba de audio en segundo plano.
-2. Biblioteca y reproducción (importar canciones, cola, pantalla de bloqueo).
-3. Pantallas del prototipo (biblioteca, Sonando ahora, listas, favoritos, buscador).
-4. Sonido: ecualizador de 10 bandas, graves, crossfade.
-5. Ajustes y apariencia.
+1. ✅ Base: cadena compilar → firmar → instalar.
+2. 🟡 Biblioteca y reproducción: importar archivos, biblioteca de Música (sin DRM), cola, pantalla de bloqueo, auriculares, llamadas.
+3. 🟡 Pantallas del prototipo: biblioteca con índice A–Z, Sonando ahora con onda real, listas, favoritos, buscador.
+4. 🟡 Sonido: ecualizador de 10 bandas, graves, agudos, fundido y reproducción sin pausas.
+5. 🟡 Ajustes y apariencia: acentos, temas, forma de portada y botón.
+
+🟡 = escrito, falta probar en el iPhone.
+
+## Cómo meter canciones
+
+- **Importar** (botón `+` en Canciones): MP3, M4A, FLAC, WAV desde Archivos o iCloud Drive.
+- **Carpeta SoundFast**: en Archivos → En mi iPhone → SoundFast, o en Windows desde
+  la app **Dispositivos Apple** → tu iPhone → Archivos → SoundFast. Al volver a la app se actualiza sola.
+- **Abrir en SoundFast** desde otra app (WhatsApp, Telegram, Safari…).
+- **Biblioteca de Música**: canciones descargadas o pasadas con iTunes. Las de Apple Music
+  por suscripción no aparecen: tienen DRM y iOS no deja pasarlas por el ecualizador.

@@ -10,7 +10,7 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    MARKETING_VERSION: "0.1.0"
+    MARKETING_VERSION: "0.2.0"
     CURRENT_PROJECT_VERSION: "1"
     SF_BUILD_DATE: "local"
 
@@ -45,5 +45,28 @@ targets:
         UIUserInterfaceStyle: Dark
         UIStatusBarStyle: UIStatusBarStyleLightContent
         ITSAppUsesNonExemptEncryption: false
+        NSAppleMusicUsageDescription: SoundFast lee tu biblioteca para mostrar, reproducir y organizar tus canciones con ecualizador.
+        # Carpeta "SoundFast" visible en Archivos y en "Dispositivos Apple" de Windows
+        UIFileSharingEnabled: true
+        LSSupportsOpeningDocumentsInPlace: true
+        # "Abrir en SoundFast" desde otras apps
+        CFBundleDocumentTypes:
+          - CFBundleTypeName: Audio
+            CFBundleTypeRole: Viewer
+            LSHandlerRank: Alternate
+            LSItemContentTypes:
+              - public.audio
+              - public.mp3
+              - public.mpeg-4-audio
+              - org.xiph.flac
+        UIAppFonts:
+          - Sora-Regular.ttf
+          - Sora-Medium.ttf
+          - Sora-SemiBold.ttf
+          - Sora-Bold.ttf
+          - Sora-ExtraBold.ttf
+          - JetBrainsMono-Regular.ttf
+          - JetBrainsMono-Medium.ttf
+          - JetBrainsMono-Bold.ttf
     scheme:
       gatherCoverageData: false

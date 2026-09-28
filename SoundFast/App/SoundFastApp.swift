@@ -2,10 +2,43 @@ import SwiftUI
 
 @main
 struct SoundFastApp: App {
+    @StateObject private var library: LibraryStore
+    @StateObject private var prefs: Preferences
+    @StateObject private var player: PlayerController
+    @StateObject private var ui: AppUI
+    @StateObject private var waveforms: WaveformStore
+    @StateObject private var artwork: ArtworkStore
+    @Environment(\.scenePhase) private var scenePhase
+
+    init() {
+        let library = LibraryStore()
+        let prefs = Preferences()
+        _library = StateObject(wrappedValue: library)
+        _prefs = StateObject(wrappedValue: prefs)
+        _player = StateObject(wrappedValue: PlayerController(library: library, prefs: prefs))
+        _ui = StateObject(wrappedValue: AppUI())
+        _waveforms = StateObject(wrappedValue: WaveformStore())
+        _artwork = StateObject(wrappedValue: ArtworkStore())
+    }
+
     var body: some Scene {
         WindowGroup {
-            DiagnosticView()
-                .preferredColorScheme(.dark)
+            RootView()
+                .withStores(library, prefs, player, ui, waveforms, artwork)
+        }
+        .onChange(of: scenePhase) { _, phase in
+            switch phase {
+            case .background:
+                player.saveState()
+                library.saveNow()
+            case .active:
+                // Recoge canciones copiadas desde Archivos o desde Windows.
+                if library.onboarded || !library.songs.isEmpty {
+                    Task { await library.refresh() }
+                }
+            default:
+                break
+            }
         }
     }
 }
