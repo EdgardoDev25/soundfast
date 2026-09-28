@@ -11,7 +11,6 @@ struct NowPlayingView: View {
 
     @State private var axis: Axis?
     @State private var dragOnArt = false
-    @State private var artFrame: CGRect = .zero
     @State private var artX: CGFloat = 0
     @State private var scrub: Double?
     @State private var scrubStart: Double = 0
@@ -59,15 +58,13 @@ struct NowPlayingView: View {
             .padding(.horizontal, 24)
             .padding(.bottom, 8)
             .frame(width: geo.size.width, height: geo.size.height)
-            .coordinateSpace(name: "np")
-            .onPreferenceChange(ArtFrameKey.self) { artFrame = $0 }
             .background {
                 RoundedRectangle(cornerRadius: ui.npDrag > 0 ? 44 : 0, style: .continuous)
                     .fill(background(song))
                     .ignoresSafeArea()
             }
             .contentShape(Rectangle())
-            .gesture(panelDrag)
+            .gesture(drag(onArt: false))
         }
         .onAppear { if let song { waveforms.request(song) } }
         .onChange(of: player.currentId) { _, _ in
@@ -153,15 +150,13 @@ struct NowPlayingView: View {
             }
         }
         .frame(width: size, height: size)
-        .background {
-            GeometryReader { g in
-                Color.clear.preference(key: ArtFrameKey.self, value: g.frame(in: .named("np")))
-            }
-        }
         .shadow(color: .black.opacity(0.45), radius: 30, y: 30)
         .offset(x: artX)
         .rotationEffect(.degrees(Double(artX / 45)))
         .opacity(max(0, 1 - Double(abs(artX)) / 520))
+        .contentShape(Rectangle())
+        // Gesto propio de la portada: tiene prioridad sobre el del panel.
+        .highPriorityGesture(drag(onArt: true))
     }
 
     private func titleRow(_ song: Song?) -> some View {
@@ -371,13 +366,14 @@ struct NowPlayingView: View {
     // MARK: Gestos
 
     /// Vertical en cualquier parte: cerrar. Horizontal sobre la portada: cambiar canción.
-    private var panelDrag: some Gesture {
-        DragGesture(minimumDistance: 8, coordinateSpace: .named("np"))
+    /// En coordenadas globales, porque la portada se mueve con el dedo.
+    private func drag(onArt: Bool) -> some Gesture {
+        DragGesture(minimumDistance: 8, coordinateSpace: .global)
             .onChanged { v in
                 guard scrub == nil else { return }
                 if axis == nil {
                     axis = abs(v.translation.width) > abs(v.translation.height) ? .horizontal : .vertical
-                    dragOnArt = artFrame.contains(v.startLocation)
+                    dragOnArt = onArt
                 }
                 if axis == .vertical {
                     ui.npDrag = max(0, v.translation.height)
@@ -423,9 +419,4 @@ struct NowPlayingView: View {
             withAnimation(.spring(response: 0.3, dampingFraction: 0.82)) { artX = 0 }
         }
     }
-}
-
-private struct ArtFrameKey: PreferenceKey {
-    static let defaultValue: CGRect = .zero
-    static func reduce(value: inout CGRect, nextValue: () -> CGRect) { value = nextValue() }
 }

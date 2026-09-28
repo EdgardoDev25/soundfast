@@ -4,6 +4,8 @@ import SwiftUI
 struct SoundView: View {
     @EnvironmentObject private var prefs: Preferences
     @Environment(\.dismiss) private var dismiss
+    /// Mientras se gira una perilla o se mueve una banda, la pantalla no se desplaza.
+    @State private var editing = false
 
     private var accent: Color { prefs.accent.color }
 
@@ -44,6 +46,8 @@ struct SoundView: View {
                 .padding(.bottom, 40)
             }
             .scrollIndicators(.hidden)
+            .scrollBounceBehavior(.basedOnSize)
+            .scrollDisabled(editing)
         }
         .background(prefs.theme.bg.ignoresSafeArea())
     }
@@ -61,7 +65,7 @@ struct SoundView: View {
                 Knob(
                     value: $prefs.sound.bass,
                     size: 180, stroke: 12, innerRatio: 64.0 / 84.0, dotRadius: 5, dotDistance: 54,
-                    color: accent
+                    color: accent, onEditing: { editing = $0 }
                 ) {
                     VStack(spacing: 1) {
                         Text("GRAVES").eyebrow(10, color: Ink.dim)
@@ -80,7 +84,7 @@ struct SoundView: View {
                     Knob(
                         value: $prefs.sound.treble,
                         size: 108, stroke: 14, innerRatio: 62.0 / 84.0, dotRadius: 8, dotDistance: 50,
-                        color: Color(hex: 0xE9E7E2)
+                        color: Color(hex: 0xE9E7E2), onEditing: { editing = $0 }
                     ) {
                         Text("\(Int(prefs.sound.treble))%")
                             .font(.sora(17, .heavy))
@@ -157,7 +161,8 @@ struct SoundView: View {
                     BandSlider(
                         value: prefs.sound.bands[i],
                         label: SoundSettings.bandLabels[i],
-                        accent: accent
+                        accent: accent,
+                        onEditing: { editing = $0 }
                     ) { v in prefs.setBand(i, v) }
                     if i < 9 { Spacer(minLength: 0) }
                 }
@@ -184,6 +189,7 @@ struct Knob<Center: View>: View {
     let dotRadius: CGFloat
     let dotDistance: CGFloat
     let color: Color
+    let onEditing: (Bool) -> Void
     @ViewBuilder let center: () -> Center
 
     @State private var start: Double?
@@ -215,16 +221,23 @@ struct Knob<Center: View>: View {
         }
         .frame(width: size, height: size)
         .contentShape(Circle())
-        .gesture(
-            DragGesture(minimumDistance: 0)
+        .highPriorityGesture(
+            // Coordenadas globales: el cálculo no depende de si la pantalla se mueve.
+            DragGesture(minimumDistance: 0, coordinateSpace: .global)
                 .onChanged { g in
-                    if start == nil { start = value }
+                    if start == nil {
+                        start = value
+                        onEditing(true)
+                    }
                     let d = Double(g.translation.width - g.translation.height)
                     let new = min(100, max(0, ((start ?? 0) + d / 2.2).rounded()))
                     if Int(new / 10) != Int(value / 10) { Haptics.tick() }
                     if new != value { value = new }
                 }
-                .onEnded { _ in start = nil }
+                .onEnded { _ in
+                    start = nil
+                    onEditing(false)
+                }
         )
         .accessibilityElement(children: .combine)
         .accessibilityValue("\(Int(value)) por ciento")
@@ -240,6 +253,7 @@ struct BandSlider: View {
     let value: Double
     let label: String
     let accent: Color
+    let onEditing: (Bool) -> Void
     let onChange: (Double) -> Void
 
     private let height: CGFloat = 150
@@ -266,15 +280,17 @@ struct BandSlider: View {
             }
             .frame(width: 28, height: height, alignment: .top)
             .contentShape(Rectangle())
-            .gesture(
+            .highPriorityGesture(
                 DragGesture(minimumDistance: 0)
                     .onChanged { g in
+                        onEditing(true)
                         let v = min(12, max(-12, ((0.5 - g.location.y / height) * 24).rounded()))
                         if v != value {
                             Haptics.tick()
                             onChange(v)
                         }
                     }
+                    .onEnded { _ in onEditing(false) }
             )
             Text(label)
                 .font(.mono(9.5))
