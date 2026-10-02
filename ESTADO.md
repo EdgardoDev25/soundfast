@@ -109,7 +109,7 @@ Qué quedó integrado en la app, qué no y qué se descartó.
 | Agudos hasta +8 dB | ✅ | |
 | Punto de graves 40 / 60 / 80 / 120 Hz con descripción | ✅ | |
 | Ecualizador de 10 bandas con curva en vivo | ✅ | |
-| Con el ecualizador apagado, tocar bandas o presets no lo enciende | 🧪 | 0.5.3: solo el interruptor lo enciende. |
+| Con el ecualizador apagado, tocar bandas o presets no lo enciende | ✅ | 0.5.3: solo el interruptor lo enciende. |
 | 7 presets (Plano, Rock, Pop, Electrónica, Vocal, Acústica, Noche) | ✅ | |
 | Limitador contra saturación | ✅ | |
 
@@ -127,7 +127,7 @@ Qué quedó integrado en la app, qué no y qué se descartó.
 | Botón de reproducir en círculo o cuadrado | ✅ | |
 | Vibración (activable) | ✅ | |
 | Sonido y Ajustes que se cierran deslizando, con el minirreproductor visible | ✅ | |
-| Sonido abierto desde la reproducción queda encima y al cerrarlo vuelve a ella; desde la biblioteca vuelve a la biblioteca | 🧪 | 0.5.3 |
+| Sonido abierto desde la reproducción queda encima y al cerrarlo vuelve a ella; desde la biblioteca vuelve a la biblioteca | ✅ | 0.5.3 |
 | Ícono de la app y "Desarrollado por Edgardo Rocha" (enlace a edgfast.com) en Ajustes | ✅ | |
 
 ## 9. Portadas e información de canciones
