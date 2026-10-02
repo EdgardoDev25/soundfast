@@ -21,6 +21,8 @@ struct SoundView: View {
 
             ScrollView {
                 VStack(spacing: 16) {
+                    SoundProfileMenu()
+                        .card(prefs, radius: 18, padding: 14)
                     toneCard
                     eqCard
                 }
@@ -418,5 +420,63 @@ struct EQCurve: View {
             let y = min(h - 3, max(3, h / 2 - CGFloat(gain(f) / 24) * (h / 2 - 6)))
             return CGPoint(x: CGFloat(k) / 80 * w, y: y)
         }
+    }
+}
+
+// MARK: - Perfil por salida
+
+/// Qué ajuste de sonido se está usando (parlante, Castor Pro…) y cómo se elige:
+/// automático según lo conectado, o fijo a mano por si la detección falla.
+struct SoundProfileMenu: View {
+    @EnvironmentObject private var prefs: Preferences
+
+    var body: some View {
+        let active = prefs.activeProfile
+        let auto = prefs.profileMode == "auto"
+        Menu {
+            Button {
+                prefs.setProfileMode("auto")
+                Haptics.soft()
+            } label: {
+                Label("Automático · ahora: \(prefs.output.name)", systemImage: auto ? "checkmark" : "wand.and.stars")
+            }
+            Section("Usar siempre") {
+                ForEach(prefs.knownProfiles, id: \.self) { key in
+                    Button {
+                        prefs.setProfileMode(key)
+                        Haptics.soft()
+                    } label: {
+                        if !auto && prefs.profileMode == key {
+                            Label(prefs.profileName(key), systemImage: "checkmark")
+                        } else {
+                            Text(prefs.profileName(key))
+                        }
+                    }
+                }
+            }
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: active == OutputDevice.speaker.key ? "iphone" : "headphones")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(prefs.accent.color)
+                    .frame(width: 36, height: 36)
+                    .background(prefs.accent.alpha(0.14), in: Circle())
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Perfil: " + prefs.profileName(active.isEmpty ? prefs.output.key : active))
+                        .font(.montserrat(15, .semibold))
+                        .foregroundStyle(Ink.text)
+                        .lineLimit(1)
+                    Text(auto ? "Automático según lo que conectes" : "Fijo, elegido a mano")
+                        .font(.montserrat(12))
+                        .foregroundStyle(Ink.dim)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Ink.dim)
+            }
+            .contentShape(Rectangle())
+        }
+        .accessibilityLabel("Perfil de sonido")
     }
 }

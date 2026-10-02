@@ -8,6 +8,10 @@ import UIKit
 @MainActor
 final class SheetMotion: ObservableObject {
     @Published var drag: CGFloat = 0
+    /// Subiendo "Sonando ahora" desde el minirreproductor con el dedo.
+    @Published var lifting = false
+    /// Cuánto lleva subida (pt).
+    @Published var lift: CGFloat = 0
 }
 
 /// Si "Sonando ahora" está abierta. Va aparte de AppUI a propósito: la biblioteca
@@ -50,6 +54,10 @@ final class AppUI: ObservableObject {
         case queue
         case effects
         case addTo(songId: String)
+        case addManyTo(songIds: [String])
+        case cleanTitles
+        case duplicates
+        case formats
         case cover(songId: String)
         case editTags(songId: String)
         case picker(playlistId: String)
@@ -61,6 +69,10 @@ final class AppUI: ObservableObject {
             case .cover(let s): return "cover-\(s)"
             case .editTags(let s): return "tags-\(s)"
             case .addTo(let s): return "addTo-\(s)"
+            case .addManyTo(let ids): return "addMany-\(ids.count)-\(ids.first ?? "")"
+            case .cleanTitles: return "cleanTitles"
+            case .duplicates: return "duplicates"
+            case .formats: return "formats"
             case .picker(let p): return "picker-\(p)"
             }
         }
@@ -71,6 +83,7 @@ final class AppUI: ObservableObject {
         case rename(playlistId: String)
         case deleteList(playlistId: String)
         case deleteSong(songId: String)
+        case deleteSongs(songIds: [String])
 
         var id: String {
             switch self {
@@ -78,6 +91,7 @@ final class AppUI: ObservableObject {
             case .rename(let p): return "rename-\(p)"
             case .deleteList(let p): return "deleteList-\(p)"
             case .deleteSong(let s): return "deleteSong-\(s)"
+            case .deleteSongs(let ids): return "deleteSongs-\(ids.count)-\(ids.first ?? "")"
             }
         }
     }
@@ -108,9 +122,21 @@ final class AppUI: ObservableObject {
     func openNowPlaying() {
         hideKeyboard()
         Haptics.warmUp()
-        withAnimation(.spring(response: 0.46, dampingFraction: 0.86)) {
+        // Si venía subiendo con el dedo, el resorte sale desde ahí (más corto).
+        let response = motion.lifting ? 0.38 : 0.46
+        withAnimation(.spring(response: response, dampingFraction: 0.86)) {
             presence.open = true
             motion.drag = 0
+            motion.lifting = false
+            motion.lift = 0
+        }
+    }
+
+    /// Soltó antes de tiempo: la reproducción vuelve a bajar.
+    func cancelLift() {
+        withAnimation(.spring(response: 0.34, dampingFraction: 0.9)) {
+            motion.lifting = false
+            motion.lift = 0
         }
     }
 

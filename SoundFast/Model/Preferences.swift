@@ -202,6 +202,25 @@ struct SoundSettings: Codable, Equatable {
     }
 }
 
+/// Salida de audio (parlante, audífonos Bluetooth, cable…).
+struct OutputDevice: Equatable, Sendable {
+    let key: String
+    let name: String
+    static let speaker = OutputDevice(key: "speaker", name: "Parlante del iPhone")
+}
+
+/// Un ajuste de sonido por cada salida conocida.
+struct SoundProfiles: Codable {
+    /// "auto" (según la salida conectada) o la clave de un perfil elegido a mano.
+    var mode = "auto"
+    var active = ""
+    var store: [String: SoundSettings] = [:]
+    var names: [String: String] = [:]
+    /// El ajuste que había antes de existir los perfiles: punto de partida de
+    /// cada audífono nuevo.
+    static let baseKey = "_base"
+}
+
 /// Preferencias guardadas en el iPhone (apariencia, reproducción y sonido).
 @MainActor
 final class Preferences: ObservableObject {
@@ -214,13 +233,76 @@ final class Preferences: ObservableObject {
     }
     @Published var sound: SoundSettings { didSet { markDirty("sound") } }
     @Published var visuals: VisualSettings { didSet { markDirty("visuals") } }
+    /// Salida de audio detectada ahora mismo.
+    @Published private(set) var output = OutputDevice.speaker
+    /// Sin @Published: cambia con cada giro de perilla. Avisa a mano cuando
+    /// cambia algo que se muestra (perfil activo, modo, nombres).
+    private(set) var profiles: SoundProfiles
 
     init() {
         look = Preferences.load("look") ?? Look()
         playback = Preferences.load("playback") ?? PlaybackSettings()
         sound = Preferences.load("sound") ?? SoundSettings()
         visuals = Preferences.load("visuals") ?? VisualSettings()
+        profiles = Preferences.load("profiles") ?? SoundProfiles()
         Haptics.enabled = playback.haptics
+    }
+
+    // MARK: Perfil de sonido por salida
+
+    var profileMode: String { profiles.mode }
+    var activeProfile: String { profiles.active }
+
+    func profileName(_ key: String) -> String {
+        key == OutputDevice.speaker.key ? OutputDevice.speaker.name : (profiles.names[key] ?? key)
+    }
+
+    /// Parlante primero, luego las demás salidas conocidas por nombre.
+    var knownProfiles: [String] {
+        let others = Set(profiles.names.keys).union(profiles.store.keys).subtracting([OutputDevice.speaker.key, SoundProfiles.baseKey])
+        return [OutputDevice.speaker.key] + others.sorted { profileName($0) < profileName($1) }
+    }
+
+    /// Se conectó o desconectó algo: en automático cambia al perfil de esa salida.
+    func outputChanged(_ device: OutputDevice) {
+        if output != device { output = device }
+        if device.key != OutputDevice.speaker.key, profiles.names[device.key] != device.name {
+            objectWillChange.send()
+            profiles.names[device.key] = device.name
+            markDirty("profiles")
+        }
+        if profiles.mode == "auto" { activateProfile(device.key) }
+    }
+
+    /// "auto" o la clave de un perfil fijo (por si la detección falla).
+    func setProfileMode(_ mode: String) {
+        objectWillChange.send()
+        profiles.mode = mode
+        markDirty("profiles")
+        activateProfile(mode == "auto" ? output.key : mode)
+    }
+
+    private func activateProfile(_ key: String) {
+        guard key != profiles.active else { return }
+        objectWillChange.send()
+        if profiles.active.isEmpty {
+            // Primera vez: lo que había queda como base de los audífonos.
+            if profiles.store[SoundProfiles.baseKey] == nil { profiles.store[SoundProfiles.baseKey] = sound }
+        } else {
+            profiles.store[profiles.active] = sound
+        }
+        profiles.active = key
+        if let saved = profiles.store[key] {
+            if saved != sound { sound = saved }
+        } else {
+            // Perfil nuevo: audífonos parten del ajuste base; el parlante, del
+            // mismo pero sin refuerzo de graves (no tiene cómo reproducirlos).
+            var s = profiles.store[SoundProfiles.baseKey] ?? sound
+            if key == OutputDevice.speaker.key { s.bass = 0 }
+            profiles.store[key] = s
+            if s != sound { sound = s }
+        }
+        markDirty("profiles")
     }
 
     var accent: Accent { Accent.named(look.accent) }
@@ -286,7 +368,11 @@ final class Preferences: ObservableObject {
             switch key {
             case "look": save(key, look)
             case "playback": save(key, playback)
-            case "sound": save(key, sound)
+            case "sound", "profiles":
+                // El perfil activo siempre guarda el ajuste que suena.
+                if !profiles.active.isEmpty { profiles.store[profiles.active] = sound }
+                save("sound", sound)
+                save("profiles", profiles)
             case "visuals": save(key, visuals)
             default: break
             }

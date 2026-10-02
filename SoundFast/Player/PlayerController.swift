@@ -237,6 +237,21 @@ final class PlayerController: ObservableObject {
         saveState()
     }
 
+    /// Varias al final de la cola (selección múltiple).
+    func addToQueue(_ ids: [String]) {
+        guard !ids.isEmpty else { return }
+        guard currentId != nil else {
+            playFrom(ids[0], ids: ids, name: ctxName)
+            return
+        }
+        let adding = Set(ids)
+        var q = effectiveQueue.filter { !adding.contains($0) || $0 == currentId }
+        q.append(contentsOf: ids.filter { $0 != currentId })
+        queue = q
+        Haptics.soft()
+        saveState()
+    }
+
     /// La biblioteca cambió (se borró una canción, por ejemplo).
     func libraryDidChange() {
         if let c = currentId, library.song(c) == nil {
@@ -362,8 +377,13 @@ final class PlayerController: ObservableObject {
         }
         center.addObserver(forName: AVAudioSession.routeChangeNotification, object: session, queue: .main) { [weak self] note in
             let reason = note.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt
-            MainActor.assumeIsolated { self?.handleRouteChange(reason: reason) }
+            MainActor.assumeIsolated {
+                // Perfil de sonido según la salida (Castor Pro, parlante…).
+                self?.prefs.outputChanged(PlayerController.currentOutput)
+                self?.handleRouteChange(reason: reason)
+            }
         }
+        prefs.outputChanged(PlayerController.currentOutput)
         center.addObserver(forName: AVAudioSession.mediaServicesWereResetNotification, object: session, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.handleMediaReset() }
         }
@@ -418,6 +438,15 @@ final class PlayerController: ObservableObject {
         if isPlaying, let song = current {
             let t = clock.position
             Task { await engine.load(song, at: t, autoplay: true) }
+        }
+    }
+
+    /// Salida actual. El parlante (y el auricular de llamadas) cuentan como uno solo.
+    static var currentOutput: OutputDevice {
+        guard let out = AVAudioSession.sharedInstance().currentRoute.outputs.first else { return .speaker }
+        switch out.portType {
+        case .builtInSpeaker, .builtInReceiver: return .speaker
+        default: return OutputDevice(key: "out:" + out.portName, name: out.portName)
         }
     }
 

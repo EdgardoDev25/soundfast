@@ -13,6 +13,9 @@ struct LibraryView: View {
 
     /// Modo "Ordenar" dentro de una lista (arrastrar para reordenar).
     @State private var reordering = false
+    /// Selección múltiple: marcar varias para lista, cola o borrar.
+    @State private var selecting = false
+    @State private var selection: Set<String> = []
     /// Última canción centrada. En una clase para que anotarla no redibuje.
     @State private var centered = CenterMemo()
 
@@ -78,13 +81,67 @@ struct LibraryView: View {
             .padding(.bottom, 12)
             .topBarBackground(prefs)
         }
-        .safeAreaInset(edge: .bottom, spacing: 0) { TabBar() }
-        .onChange(of: ui.openList) { _, _ in reordering = false }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if selecting {
+                SelectionBar(
+                    count: selection.count,
+                    allSelected: !songs.isEmpty && selection.count == songs.count,
+                    toggleAll: {
+                        selection = selection.count == songs.count ? [] : Set(songs.map(\.id))
+                        Haptics.soft()
+                    },
+                    toList: { runOnSelection(songs) { ui.sheet = .addManyTo(songIds: $0) } },
+                    toQueue: {
+                        runOnSelection(songs) { ids in
+                            player.addToQueue(ids)
+                            library.notice = Format.count(ids.count, "canción añadida", "canciones añadidas") + " a la cola"
+                        }
+                    },
+                    delete: { runOnSelection(songs) { ui.modal = .deleteSongs(songIds: $0) } },
+                    done: { endSelection() }
+                )
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            } else {
+                TabBar()
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+        .onChange(of: ui.openList) { _, _ in
+            reordering = false
+            endSelection()
+        }
+        .onChange(of: ui.tab) { _, _ in endSelection() }
     }
 
     // MARK: Encabezado
 
     private var header: some View {
+        VStack(spacing: 6) {
+            brand
+            headerRow
+        }
+    }
+
+    /// "SoundFast" centrado, en negrita, con el ícono en un círculo.
+    private var brand: some View {
+        HStack(spacing: 8) {
+            Image("AppIconImage")
+                .resizable()
+                .scaledToFill()
+                .frame(width: 26, height: 26)
+                .clipShape(Circle())
+                .overlay(Circle().stroke(Color.white.opacity(0.18), lineWidth: 1))
+            Text("SoundFast")
+                .font(.montserrat(17, .heavy))
+                .tracking(-0.2)
+                .foregroundStyle(Ink.text)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 4)
+        .accessibilityElement(children: .combine)
+    }
+
+    private var headerRow: some View {
         HStack(alignment: .bottom, spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
                 if playlist != nil {
@@ -102,8 +159,6 @@ struct LibraryView: View {
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Volver a listas")
-                } else {
-                    Text("SoundFast - Edgardo Rocha").eyebrow(color: accent)
                 }
 
                 Text(headTitle)
@@ -151,7 +206,6 @@ struct LibraryView: View {
             .padding(.bottom, 4)
         }
         .padding(.horizontal, 20)
-        .padding(.top, 8)
     }
 
     private var headTitle: String {
@@ -163,6 +217,10 @@ struct LibraryView: View {
     }
 
     private var headSub: String {
+        if selecting {
+            return selection.isEmpty ? "Toca las canciones para elegirlas"
+                : Format.count(selection.count, "seleccionada", "seleccionadas")
+        }
         switch ui.tab {
         case .songs:
             return Format.count(library.songs.count, "canción", "canciones") + " · " + Format.duration(library.totalDuration)
@@ -246,6 +304,21 @@ struct LibraryView: View {
                     RefreshButton()
                 }
             }
+            if !reordering {
+                Button {
+                    ui.hideKeyboard()
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.88)) { selecting = true }
+                    Haptics.soft()
+                } label: {
+                    Image(systemName: "checkmark.circle")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(Ink.text)
+                        .frame(width: 42, height: 42)
+                        .surface(prefs, RoundedRectangle(cornerRadius: 12, style: .continuous), border: Color(hex: 0x2C2C32), interactive: true)
+                }
+                .buttonStyle(PressableStyle(scale: 0.94))
+                .accessibilityLabel("Seleccionar varias")
+            }
         }
         .padding(.horizontal, 20)
         .padding(.top, 12)
@@ -293,10 +366,16 @@ struct LibraryView: View {
                         SongRow(
                             song: song,
                             trailingPadding: showAZ ? 30 : 20,
-                            removeFromPlaylist: playlist.map { pl in { library.toggle(song.id, in: pl.id) } },
+                            removeFromPlaylist: selecting ? nil : playlist.map { pl in { library.toggle(song.id, in: pl.id) } },
+                            selected: selecting ? selection.contains(song.id) : nil,
                             onTap: {
-                                player.playFrom(song.id, ids: songs.map(\.id), name: contextName)
-                                ui.openNowPlaying()
+                                if selecting {
+                                    if selection.contains(song.id) { selection.remove(song.id) } else { selection.insert(song.id) }
+                                    Haptics.tick()
+                                } else {
+                                    player.playFrom(song.id, ids: songs.map(\.id), name: contextName)
+                                    ui.openNowPlaying()
+                                }
                             }
                         )
                         .id(song.id)
@@ -345,6 +424,22 @@ struct LibraryView: View {
                     proxy.scrollTo(target, anchor: .top)
                 }
             }
+        }
+    }
+
+    /// Ejecuta una acción con lo seleccionado (en el orden de la lista) y sale del modo.
+    private func runOnSelection(_ songs: [Song], _ action: ([String]) -> Void) {
+        let ids = songs.map(\.id).filter { selection.contains($0) }
+        guard !ids.isEmpty else { return }
+        action(ids)
+        endSelection()
+    }
+
+    private func endSelection() {
+        guard selecting else { return }
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.88)) {
+            selecting = false
+            selection = []
         }
     }
 
@@ -422,6 +517,8 @@ struct SongRow: View {
     let song: Song
     var trailingPadding: CGFloat = 20
     var removeFromPlaylist: (() -> Void)?
+    /// En modo selección: marcada o no. Fuera de él, nil.
+    var selected: Bool? = nil
     let onTap: () -> Void
 
     @EnvironmentObject private var library: LibraryStore
@@ -434,6 +531,10 @@ struct SongRow: View {
         let accent = prefs.accent.color
         Button(action: onTap) {
             HStack(spacing: 14) {
+                if let selected {
+                    CheckCircle(checked: selected, accent: accent)
+                        .transition(.move(edge: .leading).combined(with: .opacity))
+                }
                 ArtworkView(song: song, size: 48, radius: 10, letterSize: 20)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(song.title)
@@ -769,5 +870,51 @@ struct RefreshButton: View {
         .buttonStyle(PressableStyle())
         .disabled(library.isScanning)
         .accessibilityLabel("Actualizar biblioteca")
+    }
+}
+
+// MARK: - Barra de selección múltiple
+
+/// Reemplaza a la barra de pestañas mientras se eligen varias canciones.
+struct SelectionBar: View {
+    let count: Int
+    let allSelected: Bool
+    let toggleAll: () -> Void
+    let toList: () -> Void
+    let toQueue: () -> Void
+    let delete: () -> Void
+    let done: () -> Void
+
+    @EnvironmentObject private var prefs: Preferences
+
+    var body: some View {
+        HStack(spacing: 2) {
+            item(allSelected ? "Ninguna" : "Todas", allSelected ? "circle" : "checkmark.circle.fill", enabled: true, action: toggleAll)
+            item("Lista", "text.badge.plus", enabled: count > 0, action: toList)
+            item("Cola", "text.line.last.and.arrowtriangle.forward", enabled: count > 0, action: toQueue)
+            item("Borrar", "trash", enabled: count > 0, tint: Ink.danger, action: delete)
+            item("Listo", "xmark", enabled: true, tint: prefs.accent.color, action: done)
+        }
+        .padding(5)
+        .glassSurface(prefs, Capsule())
+        .shadow(color: .black.opacity(0.35), radius: 16, y: 8)
+        .padding(.horizontal, 20)
+        .padding(.bottom, 2)
+    }
+
+    private func item(_ label: String, _ icon: String, enabled: Bool, tint: Color = Ink.text,
+                      action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(spacing: 3) {
+                Image(systemName: icon).font(.system(size: 17, weight: .semibold))
+                Text(label).font(.montserrat(10.5, .semibold))
+            }
+            .foregroundStyle(enabled ? tint : Ink.tabOff)
+            .frame(maxWidth: .infinity)
+            .frame(height: 48)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(PressableStyle())
+        .disabled(!enabled)
     }
 }

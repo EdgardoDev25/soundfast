@@ -179,14 +179,31 @@ struct MiniPlayer: View {
                     if axis == .horizontal {
                         let t = dragStart + Double(value.translation.width) * duration / 342
                         seekTarget = min(max(0, t), duration - 0.5)
+                    } else if axis == .vertical {
+                        // La reproducción sube pegada al dedo. Solo cambia el
+                        // desplazamiento (SheetMotion): nada más se redibuja.
+                        let up = max(0, -value.translation.height)
+                        let motion = ui.motion
+                        if up > 0, !motion.lifting {
+                            motion.lifting = true
+                            Haptics.warmUp()
+                        }
+                        if motion.lifting { motion.lift = up }
                     }
                 }
                 .onEnded { value in
                     if axis == .horizontal, let t = seekTarget {
                         player.seek(to: t)
                         Haptics.tick()
-                    } else if axis == .vertical, value.translation.height < -30 {
-                        ui.openNowPlaying()
+                    } else if axis == .vertical, ui.motion.lifting {
+                        let up = -value.translation.height
+                        let speed = -value.velocity.height
+                        // Abre si subió bastante o si se lanzó hacia arriba.
+                        if up > 120 || (speed > 500 && up > 20) {
+                            ui.openNowPlaying()
+                        } else {
+                            ui.cancelLift()
+                        }
                     }
                     seekTarget = nil
                     axis = nil

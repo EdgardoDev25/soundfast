@@ -237,6 +237,12 @@ struct SettingsView: View {
                     ui.openSound()
                 }
                 divider
+                // Un ajuste por salida: los graves potenciados para los audífonos
+                // y otro para el parlante. Se elige solo al conectar.
+                SoundProfileMenu()
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                divider
                 HStack {
                     Text("Salida de audio").font(.montserrat(15)).foregroundStyle(Ink.text)
                     Spacer()
@@ -316,6 +322,18 @@ struct SettingsView: View {
                 }
                 divider
                 coversRow
+                divider
+                navRow("Limpiar títulos", value: library.cleaned.isEmpty ? nil : "\(library.cleaned.count) limpios") {
+                    ui.sheet = .cleanTitles
+                }
+                divider
+                navRow("Canciones duplicadas", value: nil) {
+                    ui.sheet = .duplicates
+                }
+                divider
+                navRow("Formatos y archivos", value: nil) {
+                    ui.sheet = .formats
+                }
                 divider
                 musicAccessRow
             }

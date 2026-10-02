@@ -111,7 +111,7 @@ struct QueueSheet: View {
 // MARK: - Añadir una canción a listas
 
 struct AddToPlaylistSheet: View {
-    let songId: String
+    let songIds: [String]
     @EnvironmentObject private var library: LibraryStore
     @EnvironmentObject private var prefs: Preferences
     @Environment(\.dismiss) private var dismiss
@@ -119,11 +119,12 @@ struct AddToPlaylistSheet: View {
     @State private var newName = ""
 
     var body: some View {
-        let song = library.song(songId)
+        let song = songIds.count == 1 ? library.song(songIds[0]) : nil
         VStack(spacing: 0) {
             SheetHeader(
                 title: "Añadir a una lista",
-                subtitle: song.map { "\($0.title) · \($0.artist)" } ?? ""
+                subtitle: song.map { "\($0.title) · \($0.artist)" }
+                    ?? Format.count(songIds.count, "canción", "canciones")
             ) { dismiss() }
 
             ScrollView {
@@ -147,9 +148,14 @@ struct AddToPlaylistSheet: View {
                     .buttonStyle(RowPressStyle())
 
                     ForEach(library.playlists) { p in
-                        let checked = p.songIds.contains(songId)
+                        // Marcada si ya tiene todas las elegidas.
+                        let checked = Set(songIds).isSubset(of: p.songIds)
                         Button {
-                            library.toggle(songId, in: p.id)
+                            if checked {
+                                library.remove(songIds, from: p.id)
+                            } else {
+                                library.add(songIds, to: p.id)
+                            }
                             Haptics.soft()
                         } label: {
                             HStack(spacing: 14) {
@@ -176,7 +182,7 @@ struct AddToPlaylistSheet: View {
             TextField("Ej. Para entrenar", text: $newName)
             Button("Cancelar", role: .cancel) {}
             Button("Crear") {
-                library.createPlaylist(named: newName, with: songId)
+                library.createPlaylist(named: newName, songIds: songIds)
                 Haptics.tap()
             }
         } message: {

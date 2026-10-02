@@ -13,6 +13,9 @@ struct RootView: View {
     @State private var modalText = ""
     @State private var toast: String?
     @State private var toastTask: Task<Void, Never>?
+    /// Presentación al abrir la app desde cero. Al volver de la multitarea la
+    /// vista ya existe y esto no se repite.
+    @State private var showSplash = true
 
     static let audioTypes: [UTType] = {
         var types: [UTType] = [.audio, .mp3, .mpeg4Audio, .wav, .aiff]
@@ -31,8 +34,16 @@ struct RootView: View {
                     player: player,
                     hasCurrent: player.currentId != nil,
                     clock: player.clock,
-                    hiddenOffset: geo.size.height + geo.safeAreaInsets.top + geo.safeAreaInsets.bottom + 40
+                    hiddenOffset: geo.size.height + geo.safeAreaInsets.top + geo.safeAreaInsets.bottom + 40,
+                    // Borde superior del minirreproductor: de ahí sale la reproducción al subirla.
+                    liftBase: geo.size.height + geo.safeAreaInsets.top - 140
                 )
+
+                if showSplash {
+                    SplashView()
+                        .transition(.opacity)
+                        .zIndex(10)
+                }
 
                 if !library.onboarded && library.songs.isEmpty {
                     OnboardingView()
@@ -54,7 +65,11 @@ struct RootView: View {
                 switch sheet {
                 case .queue: QueueSheet()
                 case .effects: EffectsSheet()
-                case .addTo(let id): AddToPlaylistSheet(songId: id)
+                case .addTo(let id): AddToPlaylistSheet(songIds: [id])
+                case .addManyTo(let ids): AddToPlaylistSheet(songIds: ids)
+                case .cleanTitles: CleanTitlesSheet()
+                case .duplicates: DuplicatesSheet()
+                case .formats: FormatsSheet()
                 case .picker(let id): SongPickerSheet(playlistId: id)
                 case .cover(let id): CoverPickerSheet(songId: id)
                 case .editTags(let id): EditTagsSheet(songId: id)
@@ -83,7 +98,7 @@ struct RootView: View {
                 TextField("Ej. Para entrenar", text: $modalText)
                 Button("Cancelar", role: .cancel) {}
                 Button(modalOkLabel) { confirm(modal) }
-            case .deleteList, .deleteSong:
+            case .deleteList, .deleteSong, .deleteSongs:
                 Button("Cancelar", role: .cancel) {}
                 Button("Eliminar", role: .destructive) { confirm(modal) }
             }
@@ -107,6 +122,10 @@ struct RootView: View {
             if let text { show(text) }
         }
         .animation(.easeOut(duration: 0.25), value: player.current != nil)
+        .task {
+            try? await Task.sleep(nanoseconds: 900_000_000)
+            withAnimation(.easeOut(duration: 0.35)) { showSplash = false }
+        }
     }
 
     // MARK: Avisos
@@ -129,6 +148,7 @@ struct RootView: View {
         case .rename?: return "Renombrar lista"
         case .deleteList(let id)?: return "¿Eliminar “\(library.playlist(id)?.name ?? "")”?"
         case .deleteSong(let id)?: return "¿Eliminar “\(library.song(id)?.title ?? "")”?"
+        case .deleteSongs(let ids)?: return "¿Eliminar \(Format.count(ids.count, "canción", "canciones"))?"
         case nil: return ""
         }
     }
@@ -144,6 +164,10 @@ struct RootView: View {
         case .rename: return "Escribe el nuevo nombre."
         case .deleteList: return "Las canciones seguirán en tu biblioteca."
         case .deleteSong: return "Se borrará el archivo del iPhone y de tus listas."
+        case .deleteSongs(let ids):
+            let fromMusic = ids.compactMap { library.song($0) }.filter { !$0.isImportedFile }.count
+            return "Se borrarán los archivos del iPhone y de tus listas."
+                + (fromMusic > 0 ? " \(fromMusic) son de la app Música y no se pueden borrar desde aquí." : "")
         }
     }
 
@@ -158,6 +182,9 @@ struct RootView: View {
             if ui.openList == id { ui.openList = nil }
         case .deleteSong(let id):
             if let song = library.song(id) { library.deleteFile(song) }
+        case .deleteSongs(let ids):
+            let n = library.deleteFiles(ids.compactMap { library.song($0) })
+            library.notice = Format.count(n, "canción eliminada", "canciones eliminadas")
         }
         Haptics.tap()
     }
@@ -178,6 +205,7 @@ private struct PlayerStage: View {
     let hasCurrent: Bool
     let clock: PlaybackClock
     let hiddenOffset: CGFloat
+    let liftBase: CGFloat
 
     var body: some View {
         let npOpen = presence.open
@@ -187,6 +215,9 @@ private struct PlayerStage: View {
         let over = panels.overPlayer
         let panelZ: Double = over ? 5 : 2
         let t = min(1, max(0, motion.drag) / 500)
+        // Subiendo con el dedo desde el minirreproductor (0 → 1).
+        let lifting = motion.lifting && !npOpen
+        let liftProgress = lifting ? min(1, motion.lift / max(1, liftBase)) : 0
         ZStack(alignment: .bottom) {
             Color.black.ignoresSafeArea()
 
@@ -198,7 +229,7 @@ private struct PlayerStage: View {
                 .allowsHitTesting(!npOpen)
 
             Color.black
-                .opacity(npOpen ? 0.45 * Double(1 - t) : 0)
+                .opacity(npOpen ? 0.45 * Double(1 - t) : 0.45 * Double(liftProgress))
                 .ignoresSafeArea()
                 .allowsHitTesting(false)
 
@@ -236,7 +267,7 @@ private struct PlayerStage: View {
             }
 
             NowPlayingView(clock: clock, presence: presence, panels: panels)
-                .offset(y: npOpen ? motion.drag : hiddenOffset)
+                .offset(y: npOpen ? motion.drag : (lifting ? max(0, liftBase - motion.lift) : hiddenOffset))
                 .allowsHitTesting(npOpen)
                 .accessibilityHidden(!npOpen)
                 .zIndex(4)

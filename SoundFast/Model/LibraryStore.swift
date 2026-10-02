@@ -8,6 +8,17 @@ private struct LibrarySnapshot: Codable, Sendable {
     var favorites: [String]
     var playlists: [Playlist]
     var onboarded: Bool
+    /// Opcional: las bibliotecas guardadas antes no lo traen.
+    var cleaned: [String: CleanRecord]?
+}
+
+/// Lo que "Limpiar títulos" cambió en una canción, para poder verlo y deshacerlo.
+struct CleanRecord: Codable, Sendable, Equatable {
+    var oldTitle: String
+    var oldArtist: String
+    var newTitle: String
+    var newArtist: String
+    var date: Date
 }
 
 /// Canciones, favoritos y listas. Se guarda en Application Support/library.json.
@@ -27,6 +38,8 @@ final class LibraryStore: ObservableObject {
     @Published private(set) var musicAccess = MPMediaLibrary.authorizationStatus()
     /// Mensaje corto para mostrar tras importar o actualizar.
     @Published var notice: String?
+    /// Títulos limpiados (id → antes y después).
+    @Published private(set) var cleaned: [String: CleanRecord] = [:]
 
     private var sortBy = "titulo"
     private var sortAscending = true
@@ -71,6 +84,7 @@ final class LibraryStore: ObservableObject {
             favorites = snap.favorites
             playlists = snap.playlists
             onboarded = snap.onboarded
+            cleaned = snap.cleaned ?? [:]
             setSongs(snap.songs)
         }
         // Dentro de init los observadores no corren, así que va aquí a mano.
@@ -116,14 +130,32 @@ final class LibraryStore: ObservableObject {
 
     @discardableResult
     func createPlaylist(named name: String, with songId: String? = nil) -> Playlist {
+        createPlaylist(named: name, songIds: songId.map { [$0] } ?? [])
+    }
+
+    @discardableResult
+    func createPlaylist(named name: String, songIds: [String]) -> Playlist {
         let clean = name.trimmingCharacters(in: .whitespacesAndNewlines)
         let p = Playlist(
             id: "p" + UUID().uuidString.prefix(8),
             name: clean.isEmpty ? "Nueva lista" : clean,
-            songIds: songId.map { [$0] } ?? []
+            songIds: songIds
         )
         playlists.append(p)
         return p
+    }
+
+    /// Añade varias canciones a una lista (las que ya estaban no se repiten).
+    func add(_ songIds: [String], to playlistId: String) {
+        guard let i = playlists.firstIndex(where: { $0.id == playlistId }) else { return }
+        let have = Set(playlists[i].songIds)
+        playlists[i].songIds.append(contentsOf: songIds.filter { !have.contains($0) })
+    }
+
+    func remove(_ songIds: [String], from playlistId: String) {
+        guard let i = playlists.firstIndex(where: { $0.id == playlistId }) else { return }
+        let out = Set(songIds)
+        playlists[i].songIds.removeAll { out.contains($0) }
     }
 
     func rename(_ playlistId: String, to name: String) {
@@ -229,6 +261,48 @@ final class LibraryStore: ObservableObject {
         scheduleSave()
     }
 
+    // MARK: Limpiar títulos
+
+    /// Aplica las sugerencias elegidas. Guarda el antes para poder deshacerlo.
+    func applyClean(_ suggestions: [TitleCleaner.Suggestion]) {
+        guard !suggestions.isEmpty else { return }
+        var log = cleaned
+        var changed: [String: Song] = [:]
+        for sug in suggestions {
+            guard var s = byId[sug.id], !sug.newTitle.isEmpty else { continue }
+            // Si ya se había limpiado, se conserva el original de verdad.
+            let first = log[sug.id]
+            s.title = sug.newTitle
+            s.artist = sug.newArtist.isEmpty ? s.artist : sug.newArtist
+            log[sug.id] = CleanRecord(
+                oldTitle: first?.oldTitle ?? sug.oldTitle, oldArtist: first?.oldArtist ?? sug.oldArtist,
+                newTitle: s.title, newArtist: s.artist, date: Date()
+            )
+            changed[s.id] = s
+        }
+        guard !changed.isEmpty else { return }
+        cleaned = log
+        setSongs(songs.map { changed[$0.id] ?? $0 })
+        scheduleSave()
+    }
+
+    /// Vuelve al título y artista que tenía antes de limpiarlo.
+    func revertClean(_ ids: [String]) {
+        var log = cleaned
+        var changed: [String: Song] = [:]
+        for id in ids {
+            guard let rec = log[id] else { continue }
+            log[id] = nil
+            guard var s = byId[id] else { continue }
+            s.title = rec.oldTitle
+            s.artist = rec.oldArtist
+            changed[id] = s
+        }
+        cleaned = log
+        if !changed.isEmpty { setSongs(songs.map { changed[$0.id] ?? $0 }) }
+        scheduleSave()
+    }
+
     /// Ya hay portada guardada para esta canción (descargada de internet).
     func markArtwork(_ id: String) {
         guard var s = byId[id] else { return }
@@ -246,6 +320,23 @@ final class LibraryStore: ObservableObject {
         setSongs(songs.filter { $0.id != song.id })
         prune()
         scheduleSave()
+    }
+
+    /// Borra varias de una vez (solo las importadas). Devuelve cuántas borró.
+    @discardableResult
+    func deleteFiles(_ list: [Song]) -> Int {
+        var removed = Set<String>()
+        for song in list {
+            guard case .file(let path) = song.source else { continue }
+            try? FileManager.default.removeItem(at: MediaFiles.url(forRelativePath: path))
+            try? FileManager.default.removeItem(at: MediaFiles.artworkURL(for: song.id))
+            removed.insert(song.id)
+        }
+        guard !removed.isEmpty else { return 0 }
+        setSongs(songs.filter { !removed.contains($0.id) })
+        prune()
+        scheduleSave()
+        return removed.count
     }
 
     // MARK: Interno
@@ -346,7 +437,8 @@ final class LibraryStore: ObservableObject {
     }
 
     private func snapshot() -> LibrarySnapshot {
-        LibrarySnapshot(songs: Array(byId.values), favorites: favorites, playlists: playlists, onboarded: onboarded)
+        LibrarySnapshot(songs: Array(byId.values), favorites: favorites, playlists: playlists,
+                        onboarded: onboarded, cleaned: cleaned)
     }
 }
 
