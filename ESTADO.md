@@ -1,7 +1,7 @@
 # SoundFast — Estado del proyecto
 
 Qué quedó integrado en la app, qué no y qué se descartó.
-Última versión: **0.5.3** · 2026-10-02 · iPhone 16 Pro Max.
+Última versión: **0.6.0** · 2026-10-02 · iPhone 16 Pro Max.
 
 **Leyenda**
 - ✅ Integrado y confirmado por Edgar en el iPhone
@@ -45,7 +45,9 @@ Qué quedó integrado en la app, qué no y qué se descartó.
 | Ordenar por título, artista, álbum, fecha o duración, ascendente o descendente | ✅ | Menú en la biblioteca y también en Ajustes. |
 | Fila Reproducir / Aleatorio / Ordenar / Actualizar que se oculta con el scroll | ✅ | |
 | Duración total en horas y minutos ("3 h 40 min") | ✅ | |
-| Encabezado "SoundFast - Edgardo Rocha" | ✅ | |
+| Encabezado "SoundFast" centrado con el ícono en un círculo | 🧪 | 0.6.0 (antes "SoundFast - Edgardo Rocha"). |
+| Presentación al abrir la app (ícono, nombre, "Desarrollado y diseñado por Edgardo Rocha") | 🧪 | Solo al abrirla desde cero, no al volver de la multitarea. |
+| Selección múltiple: a una lista, a la cola o borrar | 🧪 | Botón ✓ junto a Ordenar/Actualizar. |
 | Deslizar una fila: a continuación, favorito o añadir a lista | ✅ | |
 | Menú al mantener presionada una canción | ✅ | A continuación, cola, favorito, lista, editar información, portada, eliminar. |
 | Eliminar del iPhone una canción importada | 🧪 | Pide confirmación. |
@@ -86,6 +88,7 @@ Qué quedó integrado en la app, qué no y qué se descartó.
 | Barra de progreso tipo línea (opcional) | ✅ | |
 | Adelantar arrastrando la onda, con indicador sobre la portada | ✅ | |
 | Adelantar deslizando el minirreproductor | ✅ | |
+| Subir el minirreproductor con el dedo: la reproducción sube pegada al dedo | 🧪 | 0.6.0 |
 | Título y artista con fundido al cambiar | ✅ | |
 | Botones de vidrio y fila A lista / Sonido / Efectos / Cola | ✅ | |
 | Editar información y buscar portada desde el título (mantener presionado) | 🧪 | |
@@ -112,6 +115,7 @@ Qué quedó integrado en la app, qué no y qué se descartó.
 | Con el ecualizador apagado, tocar bandas o presets no lo enciende | ✅ | 0.5.3: solo el interruptor lo enciende. |
 | 7 presets (Plano, Rock, Pop, Electrónica, Vocal, Acústica, Noche) | ✅ | |
 | Limitador contra saturación | ✅ | |
+| Perfil de sonido por salida (parlante / cada audífono), automático o fijo a mano | 🧪 | 0.6.0. En Sonido y en Ajustes → Sonido. |
 
 ## 8. Apariencia
 
@@ -138,6 +142,9 @@ Qué quedó integrado en la app, qué no y qué se descartó.
 | Buscar y elegir la portada de una canción en internet | 🧪 | Usa el buscador público de iTunes. |
 | Descargar todas las portadas que faltan | 🧪 | Unas 20 consultas por minuto (límite de Apple); se puede detener. |
 | Portada desde Fotos | 🧪 | |
+| Limpiar títulos (vista previa, elegir, historial y deshacer) | 🧪 | Ajustes → Biblioteca. No toca el archivo. |
+| Canciones duplicadas (mismo título y ±3 s) | 🧪 | Se queda la de mejor calidad. |
+| Formatos y archivos: filtrar, verificar si funcionan y borrar | 🧪 | |
 | Editar título, artista, álbum, género, año y pista | 🧪 | Se guarda en SoundFast; **el archivo no se modifica**. |
 
 ---
@@ -177,5 +184,6 @@ Qué quedó integrado en la app, qué no y qué se descartó.
 | 0.4.2 | 7 | Arreglo del cierre al cambiar de canción. |
 | 0.5 | 8 | Vidrio en barras y reproducción, editar información, +36 dB. |
 | 0.5.1 | — | Pantalla de reproducción partida en piezas, biblioteca más liviana. |
+| 0.6.0 | — | Subir la reproducción con el dedo, perfiles por salida, selección múltiple, limpiar títulos, duplicadas, formatos, encabezado y presentación. |
 | 0.5.3 | — | Sonido encima de la reproducción, cierre de paneles más liviano, ecualizador apagado no se enciende solo. |
 | 0.5.2 | — | Rendimiento: la biblioteca ya no se encoge ni se redibuja al abrir/cerrar la reproducción; portada con fundido y precargada al deslizar. |
