@@ -252,7 +252,6 @@ final class Preferences: ObservableObject {
         var s = sound
         s.bands[index] = value
         s.preset = SoundSettings.custom
-        s.eqOn = true
         sound = s
     }
 

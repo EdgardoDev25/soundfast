@@ -44,6 +44,8 @@ struct NowPlayingView: View {
     /// Sin `@ObservedObject`: la posición solo la mira la barra de progreso.
     let clock: PlaybackClock
     @ObservedObject var presence: NowPlayingPresence
+    /// Con Sonido o Ajustes encima, los efectos y el analizador descansan.
+    @ObservedObject var panels: PanelState
 
     /// Colores dominantes de la portada actual.
     @State private var artColors: [Color] = []
@@ -53,6 +55,8 @@ struct NowPlayingView: View {
     var body: some View {
         let song = player.current
         let open = presence.open
+        // Visible de verdad: abierta y sin un panel tapándola.
+        let shown = open && !panels.anyOpen
         GeometryReader { geo in
             let artSize = min(geo.size.width - 48, geo.size.height * 0.42, 380)
             VStack(spacing: 0) {
@@ -77,7 +81,7 @@ struct NowPlayingView: View {
                 TitleRow(song: song, ui: ui)
                     .padding(.top, 14)
 
-                SeekSection(song: song, clock: clock, scrub: scrub, open: open)
+                SeekSection(song: song, clock: clock, scrub: scrub, open: shown)
                     .padding(.top, 14)
 
                 Spacer(minLength: 12)
@@ -98,7 +102,7 @@ struct NowPlayingView: View {
                 Backdrop(
                     song: song,
                     artColors: artColors,
-                    visible: open,
+                    visible: shown,
                     focus: CGPoint(x: geo.size.width / 2, y: geo.safeAreaInsets.top + 75 + artSize / 2),
                     artRadius: artSize / 2
                 )
@@ -120,7 +124,7 @@ struct NowPlayingView: View {
     }
 
     private var analyzerNeeded: Bool {
-        presence.open && player.isPlaying
+        presence.open && !panels.anyOpen && player.isPlaying
             && ((prefs.visuals.enabled && prefs.visuals.reactive) || prefs.playback.seekStyle == "onda")
     }
 
@@ -292,7 +296,7 @@ private struct NPBottomRow: View {
                 }
                 Spacer()
                 bottomButton("Sonido", "slider.horizontal.3", prefs.sound.isModified ? accent : Color.white.opacity(0.75)) {
-                    ui.closeNowPlaying()
+                    // Sube encima sin cerrar la reproducción.
                     ui.openSound()
                 }
                 Spacer()

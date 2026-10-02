@@ -19,6 +19,20 @@ final class NowPlayingPresence: ObservableObject {
     @Published var open = false
 }
 
+/// Paneles Sonido y Ajustes. Van aparte de AppUI por lo mismo que la reproducción:
+/// la biblioteca observa AppUI y abrir o cerrar un panel la volvía a armar entera.
+@MainActor
+final class PanelState: ObservableObject {
+    @Published var sound = false
+    @Published var settings = false
+    /// El panel se abrió desde "Sonando ahora": va encima de ella y, al cerrarlo,
+    /// se vuelve ahí. Se mantiene durante la animación de cierre (para que el panel
+    /// no se esconda de golpe detrás de la reproducción) y se apaga al terminar.
+    @Published var overPlayer = false
+
+    var anyOpen: Bool { sound || settings }
+}
+
 /// Letra que se está tocando en el índice A–Z. Va aparte de AppUI para que
 /// arrastrar el índice no vuelva a filtrar y redibujar la biblioteca entera
 /// en cada letra.
@@ -77,8 +91,9 @@ final class AppUI: ObservableObject {
     /// Avisa al cerrar "Sonando ahora": la biblioteca centra la canción que suena.
     /// Es un aviso suelto, no un estado publicado, para no redibujar la biblioteca.
     let reveal = PassthroughSubject<Void, Never>()
-    @Published var soundOpen = false
-    @Published var settingsOpen = false
+    let panels = PanelState()
+    var soundOpen: Bool { panels.sound }
+    var settingsOpen: Bool { panels.settings }
     @Published var sheet: Sheet?
     @Published var modal: Modal?
     @Published var importing = false
@@ -106,32 +121,41 @@ final class AppUI: ObservableObject {
             presence.open = false
             motion.drag = 0
         }
+        panels.overPlayer = false
         reveal.send()
     }
 
     private let panelSpring = Animation.spring(response: 0.42, dampingFraction: 0.9)
 
     /// Paneles Sonido y Ajustes (suben desde abajo; el minirreproductor queda encima).
+    /// Abiertos desde "Sonando ahora" quedan encima de ella sin cerrarla: al
+    /// cerrarlos se vuelve a la reproducción. Desde la biblioteca, a la biblioteca.
     func openSound() {
         hideKeyboard()
+        if !panels.anyOpen { panels.overPlayer = presence.open }
         withAnimation(panelSpring) {
-            settingsOpen = false
-            soundOpen = true
+            panels.settings = false
+            panels.sound = true
         }
     }
 
     func openSettings() {
         hideKeyboard()
+        if !panels.anyOpen { panels.overPlayer = presence.open }
         withAnimation(panelSpring) {
-            soundOpen = false
-            settingsOpen = true
+            panels.sound = false
+            panels.settings = true
         }
     }
 
     func closePanels() {
+        guard panels.anyOpen else { return }
         withAnimation(panelSpring) {
-            soundOpen = false
-            settingsOpen = false
+            panels.sound = false
+            panels.settings = false
+        } completion: { [panels] in
+            // Si mientras tanto se abrió otro panel, se respeta su origen.
+            if !panels.anyOpen { panels.overPlayer = false }
         }
     }
 

@@ -68,6 +68,8 @@ struct MiniPlayer: View {
     @EnvironmentObject private var player: PlayerController
     @EnvironmentObject private var ui: AppUI
     @ObservedObject var clock: PlaybackClock
+    /// Sin observar: solo para saber qué hacer al tocarlo.
+    let panels: PanelState
 
     @State private var seekTarget: Double?
     @State private var dragStart: Double = 0
@@ -155,7 +157,14 @@ struct MiniPlayer: View {
         }
         .shadow(color: .black.opacity(0.5), radius: 15, y: 12)
         .contentShape(RoundedRectangle(cornerRadius: 18))
-        .onTapGesture { ui.openNowPlaying() }
+        .onTapGesture {
+            // Con un panel encima de la reproducción, tocarlo vuelve a ella.
+            if panels.anyOpen && ui.npOpen {
+                ui.closePanels()
+            } else {
+                ui.openNowPlaying()
+            }
+        }
         .gesture(
             DragGesture(minimumDistance: 8)
                 .onChanged { value in

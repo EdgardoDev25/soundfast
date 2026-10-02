@@ -131,7 +131,7 @@ struct SoundView: View {
                     ForEach(presetNames, id: \.self) { name in
                         let on = prefs.sound.preset == name
                         Button {
-                            if name != SoundSettings.custom {
+                            if prefs.sound.eqOn, name != SoundSettings.custom {
                                 withAnimation(.easeOut(duration: 0.25)) { prefs.applyPreset(name) }
                                 Haptics.soft()
                             }
@@ -151,6 +151,7 @@ struct SoundView: View {
             }
             .scrollIndicators(.hidden)
             .padding(.horizontal, -16)
+            .opacity(prefs.sound.eqOn ? 1 : 0.35)
 
             HStack(spacing: 0) {
                 ForEach(0..<10, id: \.self) { i in
@@ -163,7 +164,15 @@ struct SoundView: View {
                 }
             }
             .opacity(prefs.sound.eqOn ? 1 : 0.35)
+            // Apagado, tocar una banda no lo enciende: hay que usar el interruptor.
+            .allowsHitTesting(prefs.sound.eqOn)
             .animation(.easeOut(duration: 0.2), value: prefs.sound.eqOn)
+
+            if !prefs.sound.eqOn {
+                Text("Ecualizador apagado. Enciéndelo con el interruptor para ajustar las bandas.")
+                    .font(.montserrat(12))
+                    .foregroundStyle(Ink.faint)
+            }
         }
         .card(prefs)
     }
@@ -200,11 +209,15 @@ struct Knob<Center: View>: View {
         let v = value / 100
         let lw = stroke * scale * (active ? 1.25 : 1)
         ZStack {
-            // Halo mientras se opera.
-            Circle()
-                .stroke(color.opacity(active ? 0.55 : 0), lineWidth: lw * 2.2)
-                .blur(radius: 10)
-                .frame(width: 168 * scale, height: 168 * scale)
+            // Halo mientras se opera. Solo existe al tocar: un desenfoque
+            // invisible igual se calculaba en cada cuadro al deslizar el panel.
+            if active {
+                Circle()
+                    .stroke(color.opacity(0.55), lineWidth: lw * 2.2)
+                    .blur(radius: 10)
+                    .frame(width: 168 * scale, height: 168 * scale)
+                    .transition(.opacity)
+            }
             Circle()
                 .trim(from: 0, to: 0.75)
                 .stroke(Ink.track, style: StrokeStyle(lineWidth: lw, lineCap: .round))
@@ -215,7 +228,7 @@ struct Knob<Center: View>: View {
                 .stroke(color, style: StrokeStyle(lineWidth: lw, lineCap: .round))
                 .rotationEffect(.degrees(135))
                 .frame(width: 168 * scale, height: 168 * scale)
-                .shadow(color: color.opacity(active ? 0.8 : 0), radius: 8)
+                .shadow(color: color.opacity(active ? 0.8 : 0), radius: active ? 8 : 0)
             Circle()
                 .fill(Color(hex: 0x1F1F25))
                 .overlay(Circle().stroke(active ? color : Color(hex: 0x2F2F36), lineWidth: active ? 2 : 1.5))
@@ -223,7 +236,7 @@ struct Knob<Center: View>: View {
             Circle()
                 .fill(active ? color : Color.white)
                 .frame(width: dotRadius * 2 * scale * (active ? 1.5 : 1), height: dotRadius * 2 * scale * (active ? 1.5 : 1))
-                .shadow(color: color.opacity(active ? 0.9 : 0), radius: 6)
+                .shadow(color: color.opacity(active ? 0.9 : 0), radius: active ? 6 : 0)
                 .offset(y: -dotDistance * scale)
                 .rotationEffect(.degrees(-135 + 270 * v))
             center()
@@ -310,7 +323,7 @@ struct BandSlider: View {
                     .fill(accent)
                     .frame(width: active ? 6 : 4, height: abs(pos - 0.5) * height)
                     .offset(y: (value >= 0 ? pos : 0.5) * height)
-                    .shadow(color: accent.opacity(active ? 0.8 : 0), radius: 6)
+                    .shadow(color: accent.opacity(active ? 0.8 : 0), radius: active ? 6 : 0)
                 Circle()
                     .fill(active ? accent : Color.white)
                     .shadow(color: .black.opacity(0.5), radius: 3, y: 2)

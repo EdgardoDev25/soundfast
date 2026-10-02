@@ -26,10 +26,9 @@ struct RootView: View {
                 PlayerStage(
                     motion: ui.motion,
                     presence: ui.presence,
+                    panels: ui.panels,
                     ui: ui,
                     player: player,
-                    soundOpen: ui.soundOpen,
-                    settingsOpen: ui.settingsOpen,
                     hasCurrent: player.currentId != nil,
                     clock: player.clock,
                     hiddenOffset: geo.size.height + geo.safeAreaInsets.top + geo.safeAreaInsets.bottom + 40
@@ -172,17 +171,21 @@ struct RootView: View {
 private struct PlayerStage: View {
     @ObservedObject var motion: SheetMotion
     @ObservedObject var presence: NowPlayingPresence
+    @ObservedObject var panels: PanelState
     /// Referencias sin observar: solo se usan para acciones.
     let ui: AppUI
     let player: PlayerController
-    let soundOpen: Bool
-    let settingsOpen: Bool
     let hasCurrent: Bool
     let clock: PlaybackClock
     let hiddenOffset: CGFloat
 
     var body: some View {
         let npOpen = presence.open
+        let panelOpen = panels.anyOpen
+        // Capas: biblioteca (0) · panel desde la biblioteca (2) · mini (3)
+        // · reproducción (4) · panel desde la reproducción (5) · mini encima (6).
+        let over = panels.overPlayer
+        let panelZ: Double = over ? 5 : 2
         let t = min(1, max(0, motion.drag) / 500)
         ZStack(alignment: .bottom) {
             Color.black.ignoresSafeArea()
@@ -199,28 +202,40 @@ private struct PlayerStage: View {
                 .ignoresSafeArea()
                 .allowsHitTesting(false)
 
-            if settingsOpen {
+            // Oscurece lo que queda detrás del panel (barato: un color plano;
+            // antes era una sombra grande que se recalculaba en cada cuadro).
+            if panelOpen {
+                Color.black.opacity(0.4)
+                    .ignoresSafeArea()
+                    .allowsHitTesting(false)
+                    .transition(.opacity)
+                    .zIndex(panelZ - 0.5)
+            }
+            if panels.settings {
                 SlidingPanel(onClose: { ui.closePanels() }) { SettingsView() }
                     .transition(.move(edge: .bottom))
-                    .zIndex(2)
+                    .zIndex(panelZ)
             }
-            if soundOpen {
+            if panels.sound {
                 SlidingPanel(onClose: { ui.closePanels() }) { SoundView() }
                     .transition(.move(edge: .bottom))
-                    .zIndex(2)
+                    .zIndex(panelZ)
             }
 
             if hasCurrent {
-                MiniPlayer(clock: clock)
+                MiniPlayer(clock: clock, panels: panels)
                     .padding(.horizontal, 10)
                     // Sin barra de pestañas debajo (paneles abiertos) baja hasta el borde.
-                    .padding(.bottom, soundOpen || settingsOpen ? 6 : 70)
+                    .padding(.bottom, panelOpen ? 6 : 70)
+                    // Sobre la reproducción solo se ve mientras el panel está abierto;
+                    // al cerrarlo se desvanece junto con él.
+                    .opacity(over && npOpen && !panelOpen ? 0 : 1)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
-                    .accessibilityHidden(npOpen)
-                    .zIndex(3)
+                    .accessibilityHidden(npOpen && !panelOpen)
+                    .zIndex(over ? 6 : 3)
             }
 
-            NowPlayingView(clock: clock, presence: presence)
+            NowPlayingView(clock: clock, presence: presence, panels: panels)
                 .offset(y: npOpen ? motion.drag : hiddenOffset)
                 .allowsHitTesting(npOpen)
                 .accessibilityHidden(!npOpen)

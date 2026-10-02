@@ -31,11 +31,14 @@ struct SlidingPanel<Content: View>: View {
     var body: some View {
         content()
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(ThemeBackground())
-            .mask {
-                RoundedRectangle(cornerRadius: 44, style: .continuous).ignoresSafeArea()
+            // Solo se recorta el fondo, con esquinas redondeadas simples. Antes
+            // el panel entero iba con máscara y una sombra grande: el iPhone tenía
+            // que dibujarlo aparte en cada cuadro del deslizamiento (el tirón al cerrar).
+            .background {
+                ThemeBackground()
+                    .clipShape(RoundedRectangle(cornerRadius: 44, style: .continuous))
+                    .ignoresSafeArea()
             }
-            .shadow(color: .black.opacity(0.45), radius: 24, y: -6)
             .offset(y: drag)
             .environment(\.panelDismiss, PanelDismiss(
                 changed: { drag = $0 },
