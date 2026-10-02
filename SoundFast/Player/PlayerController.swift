@@ -79,6 +79,14 @@ final class PlayerController: ObservableObject {
         return library.songs.map(\.id)
     }
 
+    /// La anterior y la siguiente de la cola (para precargar sus portadas).
+    var neighbors: [Song] {
+        let q = effectiveQueue
+        guard let c = currentId, let i = q.firstIndex(of: c), q.count > 1 else { return [] }
+        let ids = [q[(i + 1) % q.count], q[(i - 1 + q.count) % q.count]]
+        return ids.compactMap { library.song($0) }
+    }
+
     var upcoming: [String] {
         let q = effectiveQueue
         guard let c = currentId, let i = q.firstIndex(of: c) else { return [] }
@@ -536,7 +544,8 @@ final class PlayerController: ObservableObject {
     func saveState() {
         saveTask?.cancel()
         saveTask = Task { [weak self] in
-            try? await Task.sleep(nanoseconds: 500_000_000)
+            // Lejos de las animaciones del cambio de canción.
+            try? await Task.sleep(nanoseconds: 1_500_000_000)
             guard !Task.isCancelled else { return }
             self?.writeState()
         }

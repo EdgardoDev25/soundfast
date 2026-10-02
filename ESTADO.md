@@ -1,7 +1,7 @@
 # SoundFast — Estado del proyecto
 
 Qué quedó integrado en la app, qué no y qué se descartó.
-Última versión: **0.5.0 (build 8)** · 2026-09-28 · iPhone 16 Pro Max.
+Última versión: **0.5.2** · 2026-10-02 · iPhone 16 Pro Max.
 
 **Leyenda**
 - ✅ Integrado y confirmado por Edgar en el iPhone
@@ -79,8 +79,8 @@ Qué quedó integrado en la app, qué no y qué se descartó.
 | Qué | Estado | Nota |
 |---|---|---|
 | Portada grande con forma elegible (redonda, recta o disco) | ✅ | |
-| Deslizar la portada para cambiar de canción | ✅ | El audio cambia al soltar; la portada vieja sale con su imagen. |
-| Bajar deslizando para cerrar, fluido y sin saltos | ✅ | Resorte según la velocidad del dedo. |
+| Deslizar la portada para cambiar de canción | 🧪 | 0.5.2: la vieja sale desvaneciéndose y la nueva entra con fundido; la anterior y la siguiente quedan precargadas. |
+| Bajar deslizando para cerrar, fluido y sin saltos | 🧪 | 0.5.2: la biblioteca de fondo ya no se encoge (era lo que recortaba el vidrio y el degradado). |
 | Barra de progreso tipo onda con la forma real de la canción | ✅ | |
 | Onda que late con la música y punto de posición | ✅ | |
 | Barra de progreso tipo línea (opcional) | ✅ | |
@@ -174,3 +174,5 @@ Qué quedó integrado en la app, qué no y qué se descartó.
 | 0.4.1 | 6 | Cambio manual suave, +24 dB, registro de fuentes, centrar canción. |
 | 0.4.2 | 7 | Arreglo del cierre al cambiar de canción. |
 | 0.5 | 8 | Vidrio en barras y reproducción, editar información, +36 dB. |
+| 0.5.1 | — | Pantalla de reproducción partida en piezas, biblioteca más liviana. |
+| 0.5.2 | — | Rendimiento: la biblioteca ya no se encoge ni se redibuja al abrir/cerrar la reproducción; portada con fundido y precargada al deslizar. |

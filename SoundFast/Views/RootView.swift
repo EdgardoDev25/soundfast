@@ -25,11 +25,12 @@ struct RootView: View {
             ZStack(alignment: .bottom) {
                 PlayerStage(
                     motion: ui.motion,
-                    npOpen: ui.npOpen,
+                    presence: ui.presence,
+                    ui: ui,
+                    player: player,
                     soundOpen: ui.soundOpen,
                     settingsOpen: ui.settingsOpen,
-                    closePanels: { ui.closePanels() },
-                    hasCurrent: player.current != nil,
+                    hasCurrent: player.currentId != nil,
                     clock: player.clock,
                     hiddenOffset: geo.size.height + geo.safeAreaInsets.top + geo.safeAreaInsets.bottom + 40
                 )
@@ -165,38 +166,46 @@ struct RootView: View {
 
 /// Biblioteca + minirreproductor + "Sonando ahora". Es la única vista que escucha el
 /// arrastre, así la biblioteca (una lista larga) no se redibuja en cada cuadro.
+///
+/// Todo lo que recibe se puede comparar (sin closures): si nada cambió, SwiftUI
+/// se salta su cuerpo cuando la raíz se redibuja por el reproductor.
 private struct PlayerStage: View {
     @ObservedObject var motion: SheetMotion
-    let npOpen: Bool
+    @ObservedObject var presence: NowPlayingPresence
+    /// Referencias sin observar: solo se usan para acciones.
+    let ui: AppUI
+    let player: PlayerController
     let soundOpen: Bool
     let settingsOpen: Bool
-    let closePanels: () -> Void
     let hasCurrent: Bool
     let clock: PlaybackClock
     let hiddenOffset: CGFloat
 
     var body: some View {
-        let t = min(1, motion.drag / 600)
+        let npOpen = presence.open
+        let t = min(1, max(0, motion.drag) / 500)
         ZStack(alignment: .bottom) {
             Color.black.ignoresSafeArea()
 
-            LibraryView()
+            // La biblioteca ya no se encoge al abrir la reproducción: al escalarla,
+            // su barra de vidrio y el degradado del fondo se recalculaban en cada
+            // cuadro y se veían recortados. Ahora queda quieta, solo se oscurece.
+            LibraryView(player: player, hasCurrent: hasCurrent)
                 .background(ThemeBackground())
-                .scaleEffect(npOpen ? 0.93 + 0.07 * t : 1)
                 .allowsHitTesting(!npOpen)
 
             Color.black
-                .opacity(npOpen ? 0.55 * Double(1 - t) : 0)
+                .opacity(npOpen ? 0.45 * Double(1 - t) : 0)
                 .ignoresSafeArea()
                 .allowsHitTesting(false)
 
             if settingsOpen {
-                SlidingPanel(onClose: closePanels) { SettingsView() }
+                SlidingPanel(onClose: { ui.closePanels() }) { SettingsView() }
                     .transition(.move(edge: .bottom))
                     .zIndex(2)
             }
             if soundOpen {
-                SlidingPanel(onClose: closePanels) { SoundView() }
+                SlidingPanel(onClose: { ui.closePanels() }) { SoundView() }
                     .transition(.move(edge: .bottom))
                     .zIndex(2)
             }
@@ -211,7 +220,7 @@ private struct PlayerStage: View {
                     .zIndex(3)
             }
 
-            NowPlayingView(clock: clock)
+            NowPlayingView(clock: clock, presence: presence)
                 .offset(y: npOpen ? motion.drag : hiddenOffset)
                 .allowsHitTesting(npOpen)
                 .accessibilityHidden(!npOpen)

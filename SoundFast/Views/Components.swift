@@ -1,4 +1,5 @@
 import AVKit
+import Combine
 import SwiftUI
 import UIKit
 
@@ -7,6 +8,15 @@ import UIKit
 @MainActor
 final class SheetMotion: ObservableObject {
     @Published var drag: CGFloat = 0
+}
+
+/// Si "Sonando ahora" está abierta. Va aparte de AppUI a propósito: la biblioteca
+/// observa AppUI, y si esto viviera ahí, abrir o cerrar la reproducción la
+/// volvía a armar entera (cientos de filas) justo en el primer cuadro de la
+/// animación. Solo la miran el escenario y la propia pantalla de reproducción.
+@MainActor
+final class NowPlayingPresence: ObservableObject {
+    @Published var open = false
 }
 
 /// Letra que se está tocando en el índice A–Z. Va aparte de AppUI para que
@@ -61,10 +71,12 @@ final class AppUI: ObservableObject {
     @Published var tab: Tab = .songs
     @Published var openList: String?
     @Published var query = ""
-    @Published var npOpen = false
+    let presence = NowPlayingPresence()
+    var npOpen: Bool { presence.open }
     let motion = SheetMotion()
-    /// Sube al cerrar "Sonando ahora": la biblioteca centra la canción que suena.
-    @Published private(set) var revealTick = 0
+    /// Avisa al cerrar "Sonando ahora": la biblioteca centra la canción que suena.
+    /// Es un aviso suelto, no un estado publicado, para no redibujar la biblioteca.
+    let reveal = PassthroughSubject<Void, Never>()
     @Published var soundOpen = false
     @Published var settingsOpen = false
     @Published var sheet: Sheet?
@@ -82,7 +94,7 @@ final class AppUI: ObservableObject {
         hideKeyboard()
         Haptics.warmUp()
         withAnimation(.spring(response: 0.46, dampingFraction: 0.86)) {
-            npOpen = true
+            presence.open = true
             motion.drag = 0
         }
     }
@@ -91,10 +103,10 @@ final class AppUI: ObservableObject {
     func closeNowPlaying(velocity: CGFloat = 0) {
         let response = velocity > 1200 ? 0.34 : 0.42
         withAnimation(.spring(response: response, dampingFraction: 0.9)) {
-            npOpen = false
+            presence.open = false
             motion.drag = 0
         }
-        revealTick += 1
+        reveal.send()
     }
 
     private let panelSpring = Animation.spring(response: 0.42, dampingFraction: 0.9)
@@ -245,7 +257,13 @@ struct ArtworkView: View {
     var letterSize: CGFloat = 20
 
     @EnvironmentObject private var artwork: ArtworkStore
-    @State private var image: UIImage?
+    /// Lo último que llegó del disco, con la clave de la canción a la que pertenece.
+    @State private var loaded: Loaded?
+
+    private struct Loaded: Equatable {
+        let key: String
+        let image: UIImage
+    }
 
     /// Cambia si cambia la canción o si se descargó una portada nueva.
     private var loadKey: String {
@@ -253,7 +271,18 @@ struct ArtworkView: View {
         return song.id + "#" + String(artwork.revision[song.id] ?? 0)
     }
 
+    /// Si la portada ya está en memoria sale en este mismo cuadro. Antes se
+    /// esperaba a la tarea y, mientras tanto, seguía viéndose la portada de la
+    /// canción anterior (el "trabón" al deslizar).
+    private func currentImage(key: String) -> UIImage? {
+        guard let song else { return nil }
+        if let hit = artwork.cached(song, size: size) { return hit }
+        return loaded?.key == key ? loaded?.image : nil
+    }
+
     var body: some View {
+        let key = loadKey
+        let image = currentImage(key: key)
         ZStack {
             (song.map { ArtColors.bg($0.hue) } ?? Color(hex: 0x2A2A30))
             if let image {
@@ -270,14 +299,13 @@ struct ArtworkView: View {
         }
         .frame(width: size, height: size)
         .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
-        .animation(.easeInOut(duration: 0.3), value: image)
-        .task(id: loadKey) {
-            guard let song else {
-                image = nil
-                return
+        // Solo se anima lo que llega del disco; lo que ya estaba en memoria entra directo.
+        .animation(.easeInOut(duration: 0.25), value: loaded?.key)
+        .task(id: key) {
+            guard let song, artwork.cached(song, size: size) == nil else { return }
+            if let img = await artwork.load(song, size: size), !Task.isCancelled {
+                loaded = Loaded(key: key, image: img)
             }
-            image = artwork.cached(song, size: size)
-            if image == nil { image = await artwork.load(song, size: size) }
         }
     }
 }

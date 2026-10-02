@@ -84,6 +84,9 @@ final class ArtworkStore: ObservableObject {
     static let thumbPixels: CGFloat = 192
     /// Hasta este tamaño en puntos se usa la miniatura.
     static let thumbLimit: CGFloat = 80
+    /// Lado máximo de la portada grande: 380 pt a 3×. Decodificar el archivo
+    /// completo (a veces 3000 px) tardaba y gastaba mucha memoria.
+    static let fullPixels: CGFloat = 1200
 
     private let full = NSCache<NSString, UIImage>()
     private let thumbs = NSCache<NSString, UIImage>()
@@ -118,11 +121,9 @@ final class ArtworkStore: ObservableObject {
         let cache = box(size)
         if let image = cache.object(forKey: song.id as NSString) { return image }
         let path = MediaFiles.artworkURL(for: song.id).path
-        let small = size <= Self.thumbLimit
-        let maxPixels = Self.thumbPixels
+        let maxPixels = size <= Self.thumbLimit ? Self.thumbPixels : Self.fullPixels
         let image = await Task.detached(priority: .userInitiated) { () -> UIImage? in
-            small ? ArtworkStore.thumbnail(path: path, maxPixels: maxPixels)
-                  : UIImage(contentsOfFile: path)?.preparingForDisplay()
+            ArtworkStore.thumbnail(path: path, maxPixels: maxPixels)
         }.value
         if let image { cache.setObject(image, forKey: song.id as NSString) }
         return image
@@ -141,6 +142,16 @@ final class ArtworkStore: ObservableObject {
         ]
         guard let cg = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else { return nil }
         return UIImage(cgImage: cg)
+    }
+
+    /// Deja listas en memoria la portada grande y los colores de estas canciones
+    /// (la anterior y la siguiente), para que al deslizar entren sin esperar.
+    func prefetch(_ songs: [Song], size: CGFloat) async {
+        for song in songs {
+            if Task.isCancelled { return }
+            _ = await load(song, size: size)
+            _ = await palette(song)
+        }
     }
 
     /// Colores dominantes de la portada, para los efectos de fondo.

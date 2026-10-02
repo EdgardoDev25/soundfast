@@ -5,11 +5,20 @@ import SwiftUI
 struct LibraryView: View {
     @EnvironmentObject private var library: LibraryStore
     @EnvironmentObject private var prefs: Preferences
-    @EnvironmentObject private var player: PlayerController
     @EnvironmentObject private var ui: AppUI
+    /// Sin observar a propósito: cada cambio de canción o de pausa volvía a armar
+    /// la lista entera. Las filas sí lo observan (solo las que están a la vista).
+    let player: PlayerController
+    let hasCurrent: Bool
 
     /// Modo "Ordenar" dentro de una lista (arrastrar para reordenar).
     @State private var reordering = false
+    /// Última canción centrada. En una clase para que anotarla no redibuje.
+    @State private var centered = CenterMemo()
+
+    final class CenterMemo {
+        var id: String?
+    }
 
     private var accent: Color { prefs.accent.color }
 
@@ -54,7 +63,7 @@ struct LibraryView: View {
                     AZIndex(present: library.presentLetters, az: ui.az)
                         .padding(.trailing, 2)
                         .padding(.top, 6)
-                        .padding(.bottom, player.current != nil ? 96 : 12)
+                        .padding(.bottom, hasCurrent ? 96 : 12)
                 }
                 AZBubble(az: ui.az)
         }
@@ -309,7 +318,7 @@ struct LibraryView: View {
                     }
 
                     Color.clear
-                        .frame(height: player.current != nil ? 96 : 16)
+                        .frame(height: hasCurrent ? 96 : 16)
                         .plainRow()
                 }
                 .listStyle(.plain)
@@ -317,11 +326,18 @@ struct LibraryView: View {
                 .environment(\.defaultMinListRowHeight, 1)
                 .scrollDismissesKeyboard(.immediately)
                 .environment(\.editMode, .constant(reordering ? .active : .inactive))
-                .onChange(of: ui.revealTick) { _, _ in
-                    // Como Poweramp: al volver de la reproducción, la canción que suena queda centrada.
-                    guard let id = player.currentId, songs.contains(where: { $0.id == id }) else { return }
-                    withAnimation(.easeInOut(duration: 0.4)) { proxy.scrollTo(id, anchor: .center) }
+                // Como Poweramp: al volver de la reproducción, la canción que suena ya
+                // está centrada. Se centra mientras la reproducción tapa la lista
+                // (al terminar de abrirse y después de cada cambio de canción), así
+                // al cerrar no queda nada por hacer y la animación va limpia.
+                .onReceive(ui.presence.$open.debounce(for: .seconds(0.6), scheduler: RunLoop.main)) { open in
+                    if open { center(proxy, songs, force: true) }
                 }
+                .onReceive(player.$currentId.debounce(for: .seconds(0.9), scheduler: RunLoop.main)) { _ in
+                    if ui.npOpen { center(proxy, songs, force: true) }
+                }
+                // Si se cierra antes de que alcance a centrarse.
+                .onReceive(ui.reveal) { _ in center(proxy, songs, force: false) }
                 // Con onReceive en vez de onChange: así esta vista no se suscribe
                 // al índice y arrastrarlo no la vuelve a armar en cada letra.
                 .onReceive(ui.az.$letter) { letter in
@@ -330,6 +346,14 @@ struct LibraryView: View {
                 }
             }
         }
+    }
+
+    /// Centra la canción que suena, sin animación (ocurre detrás de la reproducción).
+    private func center(_ proxy: ScrollViewProxy, _ songs: [Song], force: Bool) {
+        guard let id = player.currentId, force || centered.id != id,
+              songs.contains(where: { $0.id == id }) else { return }
+        centered.id = id
+        proxy.scrollTo(id, anchor: .center)
     }
 
     /// Solo dentro de una lista y con "Ordenar" activo.

@@ -33,9 +33,9 @@ enum NowPlayingClose {
 
 /// Pantalla completa de reproducción. Se cierra deslizando hacia abajo.
 ///
-/// Está partida en piezas (fondo, portada, título, barra) a propósito: así un
-/// cambio pequeño —el reloj, el dedo sobre la portada— redibuja solo esa pieza y
-/// no las catorce superficies de vidrio de toda la pantalla.
+/// Está partida en piezas (fondo, portada, título, barra, controles) a propósito:
+/// cada una recibe solo lo que muestra, así un cambio de canción o el tic del
+/// reloj redibuja lo justo y no las catorce superficies de vidrio de la pantalla.
 struct NowPlayingView: View {
     @EnvironmentObject private var prefs: Preferences
     @EnvironmentObject private var player: PlayerController
@@ -43,16 +43,16 @@ struct NowPlayingView: View {
     @EnvironmentObject private var artwork: ArtworkStore
     /// Sin `@ObservedObject`: la posición solo la mira la barra de progreso.
     let clock: PlaybackClock
+    @ObservedObject var presence: NowPlayingPresence
 
     /// Colores dominantes de la portada actual.
     @State private var artColors: [Color] = []
     @State private var scrub = ScrubState()
     @State private var gesture = DragState()
 
-    private var accent: Color { prefs.accent.color }
-
     var body: some View {
         let song = player.current
+        let open = presence.open
         GeometryReader { geo in
             let artSize = min(geo.size.width - 48, geo.size.height * 0.42, 380)
             VStack(spacing: 0) {
@@ -61,10 +61,10 @@ struct NowPlayingView: View {
                     .frame(width: 40, height: 5)
                     .padding(.top, 6)
 
-                topBar
+                NPTopBar(ctxName: player.ctxName, ui: ui)
                     .padding(.top, 8)
 
-                ArtStage(song: song, size: artSize, scrub: scrub)
+                ArtStage(song: song, size: artSize, scrub: scrub, player: player, ui: ui)
                     .padding(.top, 16)
 
                 Text(prefs.playback.swipeArt ? "‹‹ DESLIZA LA PORTADA PARA CAMBIAR ››" : " ")
@@ -74,16 +74,21 @@ struct NowPlayingView: View {
                     .frame(height: 14)
                     .padding(.top, 10)
 
-                TitleRow(song: song)
+                TitleRow(song: song, ui: ui)
                     .padding(.top, 14)
 
-                SeekSection(song: song, clock: clock, scrub: scrub)
+                SeekSection(song: song, clock: clock, scrub: scrub, open: open)
                     .padding(.top, 14)
 
                 Spacer(minLength: 12)
 
-                controls
-                bottomRow
+                TransportControls(
+                    isPlaying: player.isPlaying,
+                    shuffle: player.shuffle,
+                    repeatMode: player.repeatMode,
+                    player: player
+                )
+                NPBottomRow(player: player, ui: ui)
                     .padding(.top, 16)
             }
             .padding(.horizontal, 24)
@@ -93,6 +98,7 @@ struct NowPlayingView: View {
                 Backdrop(
                     song: song,
                     artColors: artColors,
+                    visible: open,
                     focus: CGPoint(x: geo.size.width / 2, y: geo.safeAreaInsets.top + 75 + artSize / 2),
                     artRadius: artSize / 2
                 )
@@ -114,7 +120,7 @@ struct NowPlayingView: View {
     }
 
     private var analyzerNeeded: Bool {
-        ui.npOpen && player.isPlaying
+        presence.open && player.isPlaying
             && ((prefs.visuals.enabled && prefs.visuals.reactive) || prefs.playback.seekStyle == "onda")
     }
 
@@ -137,10 +143,18 @@ struct NowPlayingView: View {
                 NowPlayingClose.finish(v.translation.height, speed: v.velocity.height, ui)
             }
     }
+}
 
-    // MARK: Partes
+// MARK: - Barras de botones
 
-    private var topBar: some View {
+/// Cerrar, "Reproduciendo desde" y salida de audio. Solo cambia con el contexto.
+private struct NPTopBar: View {
+    let ctxName: String
+    let ui: AppUI
+
+    @EnvironmentObject private var prefs: Preferences
+
+    var body: some View {
         GlassGroup {
             HStack {
                 Button {
@@ -158,7 +172,7 @@ struct NowPlayingView: View {
                 Spacer()
                 VStack(spacing: 2) {
                     Text("REPRODUCIENDO DESDE").eyebrow(10, color: Color.white.opacity(0.55))
-                    Text(player.ctxName)
+                    Text(ctxName)
                         .font(.montserrat(13, .semibold))
                         .foregroundStyle(Ink.text)
                         .lineLimit(1)
@@ -166,18 +180,31 @@ struct NowPlayingView: View {
                 }
                 Spacer()
 
-                RoutePicker(tint: Color.white.opacity(0.8), activeTint: accent)
+                RoutePicker(tint: Color.white.opacity(0.8), activeTint: prefs.accent.color)
                     .frame(width: 40, height: 40)
                     .glassSurface(prefs, Circle(), interactive: true)
                     .accessibilityLabel("Salida de audio")
             }
         }
     }
+}
 
-    private var controls: some View {
+/// Aleatorio, anterior, reproducir, siguiente y repetir. Al cambiar de canción
+/// no se redibuja: solo depende de la pausa y los modos.
+private struct TransportControls: View {
+    let isPlaying: Bool
+    let shuffle: Bool
+    let repeatMode: PlayerController.RepeatMode
+    let player: PlayerController
+
+    @EnvironmentObject private var prefs: Preferences
+
+    private var accent: Color { prefs.accent.color }
+
+    var body: some View {
         GlassGroup {
             HStack {
-                modeButton(icon: "shuffle", on: player.shuffle, label: "Aleatorio") { player.toggleShuffle() }
+                modeButton(icon: "shuffle", on: shuffle, label: "Aleatorio") { player.toggleShuffle() }
                 Spacer()
                 Button { player.previous() } label: {
                     Image(systemName: "backward.end.fill")
@@ -193,17 +220,17 @@ struct NowPlayingView: View {
                     player.togglePlay()
                     Haptics.tap()
                 } label: {
-                    Image(systemName: player.isPlaying ? "pause.fill" : "play.fill")
+                    Image(systemName: isPlaying ? "pause.fill" : "play.fill")
                         .font(.system(size: 32, weight: .bold))
                         .foregroundStyle(Ink.onAccent)
-                        .offset(x: player.isPlaying ? 0 : 3)
+                        .offset(x: isPlaying ? 0 : 3)
                         .frame(width: 80, height: 80)
                         .background(accent, in: RoundedRectangle(cornerRadius: prefs.look.playShape == "cuadrado" ? 24 : 40, style: .continuous))
                         .shadow(color: prefs.accent.alpha(0.35), radius: 17, y: 14)
                         .contentTransition(.symbolEffect(.replace))
                 }
                 .buttonStyle(PressableStyle(scale: 0.95))
-                .accessibilityLabel(player.isPlaying ? "Pausar" : "Reproducir")
+                .accessibilityLabel(isPlaying ? "Pausar" : "Reproducir")
                 Spacer()
                 Button { player.next() } label: {
                     Image(systemName: "forward.end.fill")
@@ -217,11 +244,11 @@ struct NowPlayingView: View {
                 Spacer()
                 modeButton(
                     icon: "repeat",
-                    on: player.repeatMode != .off,
-                    label: player.repeatMode == .one ? "Repetir una" : "Repetir"
+                    on: repeatMode != .off,
+                    label: repeatMode == .one ? "Repetir una" : "Repetir"
                 ) { player.cycleRepeat() }
                     .overlay(alignment: .topTrailing) {
-                        if player.repeatMode == .one {
+                        if repeatMode == .one {
                             Text("1")
                                 .font(.mono(10, .bold))
                                 .foregroundStyle(Ink.onAccent)
@@ -247,8 +274,17 @@ struct NowPlayingView: View {
         .accessibilityLabel(label)
         .accessibilityValue(on ? "Activado" : "Desactivado")
     }
+}
 
-    private var bottomRow: some View {
+/// A lista, Sonido, Efectos y Cola. No depende de la canción que suena.
+private struct NPBottomRow: View {
+    let player: PlayerController
+    let ui: AppUI
+
+    @EnvironmentObject private var prefs: Preferences
+
+    var body: some View {
+        let accent = prefs.accent.color
         GlassGroup {
             HStack {
                 bottomButton("A lista", "text.badge.plus", Color.white.opacity(0.75)) {
@@ -293,16 +329,18 @@ struct NowPlayingView: View {
 private struct Backdrop: View {
     let song: Song?
     let artColors: [Color]
+    let visible: Bool
     let focus: CGPoint
     let artRadius: CGFloat
 
     @EnvironmentObject private var prefs: Preferences
     @EnvironmentObject private var player: PlayerController
-    @EnvironmentObject private var ui: AppUI
 
     var body: some View {
         ZStack {
             base
+                // El color de fondo sigue a la portada con un fundido, no de golpe.
+                .animation(.easeInOut(duration: 0.45), value: song?.id)
             if prefs.visuals.enabled, let s = song {
                 NowPlayingEffects(
                     settings: prefs.visuals,
@@ -312,7 +350,7 @@ private struct Backdrop: View {
                     ),
                     analyzer: player.analyzer,
                     playing: player.isPlaying,
-                    visible: ui.npOpen,
+                    visible: visible,
                     focus: focus,
                     artRadius: artRadius
                 )
@@ -336,20 +374,36 @@ private struct Backdrop: View {
 
 // MARK: - Portada
 
+/// La portada que se va al deslizar: conserva su imagen mientras sale.
+private struct Outgoing {
+    let song: Song
+    let token: Int
+}
+
 /// Portada con sus dos gestos: vertical cierra, horizontal cambia de canción.
 /// Guarda su propio desplazamiento, así deslizarla no redibuja la pantalla entera.
+///
+/// Al soltar, la portada vieja sigue su camino desvaneciéndose y la nueva aparece
+/// en el centro con un fundido (ya precargada, así no hay espera de disco).
 private struct ArtStage: View {
     let song: Song?
     let size: CGFloat
     @ObservedObject var scrub: ScrubState
+    /// Sin observar: solo para acciones.
+    let player: PlayerController
+    let ui: AppUI
 
     @EnvironmentObject private var prefs: Preferences
-    @EnvironmentObject private var player: PlayerController
-    @EnvironmentObject private var ui: AppUI
+    @EnvironmentObject private var artwork: ArtworkStore
 
+    /// Desplazamiento de la portada actual bajo el dedo.
     @State private var x: CGFloat = 0
-    /// Mientras la portada sale volando conserva la imagen de la canción anterior.
-    @State private var leaving: Song?
+    @State private var outgoing: Outgoing?
+    @State private var outX: CGFloat = 0
+    @State private var outOpacity: Double = 0
+    /// 0 → 1 mientras entra la portada nueva.
+    @State private var reveal: Double = 1
+    @State private var token = 0
     @State private var gesture = DragState()
 
     private var radius: CGFloat {
@@ -361,46 +415,73 @@ private struct ArtStage: View {
     }
 
     var body: some View {
-        let shown = leaving ?? song
         ZStack {
-            ArtworkView(song: shown, size: size, radius: radius, letterSize: size * 0.53)
-            if let shown, !shown.hasArtwork {
+            if let outgoing {
+                cover(outgoing.song)
+                    .scaleEffect(0.94)
+                    .offset(x: outX)
+                    .rotationEffect(.degrees(Double(outX / 45)))
+                    .opacity(outOpacity)
+                    .allowsHitTesting(false)
+            }
+            ZStack {
+                cover(song)
+                scrubOverlay
+            }
+            .scaleEffect((1 - min(0.08, abs(x) / 2500)) * (0.92 + 0.08 * reveal))
+            .offset(x: x)
+            .rotationEffect(.degrees(Double(x / 45)))
+            .opacity(max(0, 1 - Double(abs(x)) / 520) * reveal)
+        }
+        .frame(width: size, height: size)
+        .contentShape(Rectangle())
+        // Gesto propio de la portada: tiene prioridad sobre el del fondo.
+        .highPriorityGesture(drag)
+        // La anterior y la siguiente quedan listas en memoria.
+        .task(id: song?.id) {
+            try? await Task.sleep(nanoseconds: 450_000_000)   // después de la animación
+            guard !Task.isCancelled else { return }
+            await artwork.prefetch(player.neighbors, size: size)
+        }
+    }
+
+    private func cover(_ s: Song?) -> some View {
+        ZStack {
+            ArtworkView(song: s, size: size, radius: radius, letterSize: size * 0.53)
+            if let s, !s.hasArtwork {
                 Text("PORTADA DEL ÁLBUM")
                     .font(.mono(10))
                     .tracking(1)
-                    .foregroundStyle(ArtColors.fg(shown.hue).opacity(0.8))
+                    .foregroundStyle(ArtColors.fg(s.hue).opacity(0.8))
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
                     .padding(.leading, 16)
                     .padding(.bottom, 14)
                     .opacity(prefs.look.artShape == "circulo" ? 0 : 1)
             }
-            if let target = scrub.target, let s = song {
-                let delta = target - scrub.start
-                RoundedRectangle(cornerRadius: radius, style: .continuous)
-                    .fill(Color.black.opacity(0.62))
-                VStack(spacing: 4) {
-                    Text((delta >= 0 ? "+" : "−") + Format.time(abs(delta)) + (delta >= 0 ? "  ››" : "  ‹‹"))
-                        .font(.mono(18, .bold))
-                        .foregroundStyle(prefs.accent.light)
-                    Text(Format.time(target))
-                        .font(.mono(56, .bold))
-                        .tracking(-1)
-                        .foregroundStyle(Color.white)
-                    Text("de " + Format.time(s.duration))
-                        .font(.mono(13))
-                        .foregroundStyle(Color.white.opacity(0.6))
-                }
-            }
         }
         .frame(width: size, height: size)
         .shadow(color: .black.opacity(0.45), radius: 30, y: 30)
-        .scaleEffect(1 - min(0.08, abs(x) / 2500))
-        .offset(x: x)
-        .rotationEffect(.degrees(Double(x / 45)))
-        .opacity(max(0, 1 - Double(abs(x)) / 520))
-        .contentShape(Rectangle())
-        // Gesto propio de la portada: tiene prioridad sobre el del fondo.
-        .highPriorityGesture(drag)
+    }
+
+    @ViewBuilder
+    private var scrubOverlay: some View {
+        if let target = scrub.target, let s = song {
+            let delta = target - scrub.start
+            RoundedRectangle(cornerRadius: radius, style: .continuous)
+                .fill(Color.black.opacity(0.62))
+            VStack(spacing: 4) {
+                Text((delta >= 0 ? "+" : "−") + Format.time(abs(delta)) + (delta >= 0 ? "  ››" : "  ‹‹"))
+                    .font(.mono(18, .bold))
+                    .foregroundStyle(prefs.accent.light)
+                Text(Format.time(target))
+                    .font(.mono(56, .bold))
+                    .tracking(-1)
+                    .foregroundStyle(Color.white)
+                Text("de " + Format.time(s.duration))
+                    .font(.mono(13))
+                    .foregroundStyle(Color.white.opacity(0.6))
+            }
+        }
     }
 
     /// En coordenadas globales, porque la portada se mueve con el dedo.
@@ -423,34 +504,49 @@ private struct ArtStage: View {
                 if axis == .vertical {
                     NowPlayingClose.finish(v.translation.height, speed: v.velocity.height, ui)
                 } else if axis == .horizontal, prefs.playback.swipeArt {
-                    if x < -80 {
+                    // También cuenta un deslizamiento corto pero rápido.
+                    let flick = abs(v.velocity.width) > 600 && abs(x) > 30
+                    if x < -80 || (flick && x < 0) {
                         swipe(-1)
-                    } else if x > 80 {
+                    } else if x > 80 || (flick && x > 0) {
                         swipe(1)
                     } else {
-                        withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) { x = 0 }
+                        withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) { x = 0 }
                     }
                 }
             }
     }
 
-    /// Anima la portada hacia afuera, cambia de canción y la trae desde el otro lado.
-    /// La vuelta arranca con el aviso de fin de la primera animación, no con un
-    /// temporizador: así desaparece el hueco de milisegundos que se sentía.
+    /// La portada vieja queda donde la soltó el dedo y la nueva arranca invisible
+    /// en el centro; el cambio de canción (y todo lo que redibuja) ocurre en ese
+    /// cuadro. Las animaciones empiezan en el cuadro siguiente, ya sin trabajo
+    /// pendiente, así no se pierde ningún cuadro en el movimiento.
     private func swipe(_ dir: CGFloat) {
-        let out: CGFloat = dir < 0 ? -460 : 460
-        // El audio cambia al instante (con fundido); la portada vieja termina de
-        // salir con su imagen y la nueva entra ya con la suya.
-        leaving = player.current
+        guard let current = song else { return }
+        let target: CGFloat = dir < 0 ? -420 : 420
+        token += 1
+        let mine = token
+
+        var still = Transaction()
+        still.disablesAnimations = true
+        withTransaction(still) {
+            outgoing = Outgoing(song: current, token: mine)
+            outX = x
+            outOpacity = max(0, 1 - Double(abs(x)) / 520)
+            x = 0
+            reveal = 0
+        }
         if dir < 0 { player.next() } else { player.previousTrack() }
-        withAnimation(.easeOut(duration: 0.18), completionCriteria: .logicallyComplete) {
-            x = out
-        } completion: {
-            leaving = nil
-            x = -out * 0.42
-            Task { @MainActor in
-                try? await Task.sleep(nanoseconds: 16_000_000)
-                withAnimation(.spring(response: 0.42, dampingFraction: 0.86)) { x = 0 }
+
+        DispatchQueue.main.async {
+            withAnimation(.easeOut(duration: 0.3)) {
+                outX = target
+                outOpacity = 0
+            }
+            withAnimation(.easeOut(duration: 0.38).delay(0.04)) {
+                reveal = 1
+            } completion: {
+                if outgoing?.token == mine { outgoing = nil }
             }
         }
     }
@@ -461,10 +557,10 @@ private struct ArtStage: View {
 /// Título, artista y corazón. Aparte porque es lo único que mira la biblioteca.
 private struct TitleRow: View {
     let song: Song?
+    let ui: AppUI
 
     @EnvironmentObject private var library: LibraryStore
     @EnvironmentObject private var prefs: Preferences
-    @EnvironmentObject private var ui: AppUI
 
     var body: some View {
         let isFav = song.map { library.isFavorite($0.id) } ?? false
@@ -525,10 +621,11 @@ private struct SeekSection: View {
     let song: Song?
     @ObservedObject var clock: PlaybackClock
     @ObservedObject var scrub: ScrubState
+    /// Si la reproducción está abierta (la onda solo late a la vista).
+    let open: Bool
 
     @EnvironmentObject private var prefs: Preferences
     @EnvironmentObject private var player: PlayerController
-    @EnvironmentObject private var ui: AppUI
     @EnvironmentObject private var waveforms: WaveformStore
 
     var body: some View {
@@ -555,7 +652,7 @@ private struct SeekSection: View {
                         progress: frac,
                         accent: accent,
                         analyzer: player.analyzer,
-                        live: ui.npOpen && player.isPlaying && scrub.target == nil,
+                        live: open && player.isPlaying && scrub.target == nil,
                         scrubbing: scrub.target != nil
                     )
                     .frame(height: 52)
